@@ -1,6 +1,27 @@
 var express    = require('express');
 var app        = express();
 var bodyParser = require('body-parser');
+var firebase = require('firebase');
+var config = {
+    apiKey: "AIzaSyC5B1L0NfK0WsZYRtVjVUleo6To9aFuDf8",
+    authDomain: "activities-test-a3871.firebaseapp.com",
+    databaseURL: "https://activities-test-a3871.firebaseio.com",
+    storageBucket: "activities-test-a3871.appspot.com",
+    messagingSenderId: "432468217036"
+  };
+firebase.initializeApp(config);
+
+var shuffle = function(arr){
+
+  for (var i = 0; i < arr.length; i++){
+       var a = arr[i];
+       var b = Math.floor(Math.random() * arr.length);
+       arr[i] = arr[b];
+       arr[b] = a;
+  }
+  return arr;
+}
+
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
@@ -16,39 +37,39 @@ router.use(function(req, res, next) {
 router.get('/match/:uid', function(req, res) {
 
     var uid = req.params.uid;
-    console.log(uid);
-    var all = {
-      "0du4iTIWosZCGXvMmd0jmUYFoUW2":{  first_name:"Ruth",
-                                        last_name:"Zamoreberg",
-                                        picture:"https://scontent.xx.fbcdn.net/v/t31.0-8/17434728_117316905471300_7575482917278438652_o.jpg?oh=fc6a5cc7eac788d7e20376a9c103171c&oe=5970BABE" },
+    console.log('uid:',uid);
 
-      "rKymFdHeUUfuXlhVl9E4Ad0hJ4B3":{  first_name:"Kayleigh",
-                                        last_name:"Ryley",
-                                        picture:"https://scontent.xx.fbcdn.net/v/t1.0-9/399820_736905483695_943839054_n.jpg?oh=020943dbfb2087e3aac4d10c005aefc4&oe=59730031" },
-      "cHlhCFBLTDYo3eaLdkfXZo31Oa23":{  first_name:"Betty",
-                                        last_name:"Warmansen",
-                                        picture:"https://scontent.xx.fbcdn.net/v/t31.0-8/17390669_117196362150013_4389936157008162489_o.jpg?oh=e6f5db67fa54391b76f3919bdc6c7926&oe=5953F0C4" },
-      "EEUpUy692aTXpRJN16TjXbZxmVT2":{  first_name:"Shireen",
-                                        last_name:"Brathwaite",
-                                        picture:"https://scontent.xx.fbcdn.net/v/t1.0-9/168760_732562137443_1105186_n.jpg?oh=7b3ba8f3486a2f704970647b2d28ec3f&oe=59274775" },
+    var ref = firebase.app().database().ref('user_profiles');
+    ref.once('value')
+     .then(function (snap) {
 
-    };
+     var matches = {};
+     var all = snap.val();
+     for (var userId in all) {
 
-    var matches = {};
-    for (var userId in all) {
+         if (all.hasOwnProperty(userId)) {
 
-        if (all.hasOwnProperty(userId)) {
-          console.log(userId);
-          if (userId!=uid){
+           if (userId!=uid){
 
-            matches[userId] = all[userId];
+             matches[userId] = all[userId];
 
-          }
-        }
-    }
+           }
+         }
+     }
 
+     //shuffle
+     const keys = shuffle(Object.keys(matches));
 
-    res.json(matches);
+     let shuffled = {};
+
+     for (var key in keys){
+        shuffled[keys[key]] = matches[keys[key]];
+     }
+
+     res.json(shuffled);
+
+    });
+
 });
 
 app.use('/', router);
