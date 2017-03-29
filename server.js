@@ -52,15 +52,20 @@ var getNextProfile = function(db, res, map,currentUid, matches){
        let obj = map[userId];
 
        userMatched(db, currentUid, userId).then(function(matched){
-         obj.likeyou = matched;
-         matches[userId] = obj
+
+         if (!matched){
+           obj.matched = false;
+           matches[userId] = obj
+         }
+
          delete  map[userId];
 
          getNextProfile(db, res, map,currentUid, matches);
 
        }).catch(function(error){
-         obj.likeyou = false;
-         matches[userId] = obj;
+         obj.matched = false;
+         matches[userId] = obj
+
          delete  map[userId];
 
          getNextProfile(db, res, map,currentUid, matches);
