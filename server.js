@@ -1,15 +1,15 @@
 var express    = require('express');
 var app        = express();
 var bodyParser = require('body-parser');
-var firebase = require('firebase');
-var config = {
-    apiKey: "AIzaSyC5B1L0NfK0WsZYRtVjVUleo6To9aFuDf8",
-    authDomain: "activities-test-a3871.firebaseapp.com",
-    databaseURL: "https://activities-test-a3871.firebaseio.com",
-    storageBucket: "activities-test-a3871.appspot.com",
-    messagingSenderId: "432468217036"
-  };
-firebase.initializeApp(config);
+
+var firebase = require("firebase-admin");
+
+var serviceAccount = require("./key/wavelength-d78bb-firebase-adminsdk-9n2ei-b4e617e2d4.json");
+
+firebase.initializeApp({
+  credential: firebase.credential.cert(serviceAccount),
+  databaseURL: "https://wavelength-d78bb.firebaseio.com"
+});
 
 var shuffle = function(arr){
 
