@@ -5,7 +5,7 @@ var bodyParser = require('body-parser');
 var firebase = require("firebase-admin");
 
 
-var serviceAccount = require("./auth/key.js");
+var serviceAccount = require("./auth/activities-test-a3871-firebase-adminsdk-971yy-829839ed20.json");
 
 firebase.initializeApp({
   credential: firebase.credential.cert(serviceAccount),
