@@ -5,7 +5,7 @@ var bodyParser = require('body-parser');
 var firebase = require("firebase-admin");
 
 
-var serviceAccount = require("./key/wavelength-d78bb-firebase-adminsdk-9n2ei-b4e617e2d4.json");
+var serviceAccount = require("./auth/key.js");
 
 firebase.initializeApp({
   credential: firebase.credential.cert(serviceAccount),
