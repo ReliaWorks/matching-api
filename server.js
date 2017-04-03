@@ -22,18 +22,18 @@ var shuffle = function(arr){
   return arr;
 }
 
-var userMatched = function(db, currentUid, uid) {
+var userMatchedExists = function(db, currentUid, uid) {
   return new Promise(function(resolve, reject) {
-      const str = `user_matches/${currentUid}/${uid}/matched`;
+      const str = `user_matches/${currentUid}/${uid}`;
       var ref = db.ref(str);
       console.log("ref:",str);
       ref.once('value')
       .then(function (snap) {
-       console.log("matched success:",snap.val());
-       resolve(snap.val()===true);
+       console.log("branch found:",snap.val());
+       resolve(snap.val()!==null);
       })
       .catch( function(error){
-       console.log("matched failed:");
+       console.log("branch failed:");
        reject('Failed');
       });
   });
@@ -51,10 +51,10 @@ var getNextProfile = function(db, res, map,currentUid, matches){
 
        let obj = map[userId];
 
-       userMatched(db, currentUid, userId).then(function(matched){
+       userMatchedExists(db, currentUid, userId).then(function(exists){
 
-         if (!matched){
-           obj.matched = false;
+         if (!exists){
+           console.log("Added");
            matches[userId] = obj
          }
 
@@ -63,7 +63,8 @@ var getNextProfile = function(db, res, map,currentUid, matches){
          getNextProfile(db, res, map,currentUid, matches);
 
        }).catch(function(error){
-         obj.matched = false;
+
+         console.log("Added e");
          matches[userId] = obj
 
          delete  map[userId];
