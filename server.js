@@ -4,19 +4,11 @@ var bodyParser = require('body-parser');
 
 var firebase = require("firebase-admin");
 
-<<<<<<< HEAD
 var serviceAccount = require("./auth/activities-test-a3871-firebase-adminsdk-971yy-829839ed20.json");
 
 firebase.initializeApp({
   credential: firebase.credential.cert(serviceAccount),
   databaseURL: "https://activities-test-a3871.firebaseio.com"
-=======
-var serviceAccount = require("./key/wavelength-d78bb-firebase-adminsdk-9n2ei-b4e617e2d4.json");
-
-firebase.initializeApp({
-  credential: firebase.credential.cert(serviceAccount),
-  databaseURL: "https://wavelength-d78bb.firebaseio.com"
->>>>>>> origin/qa
 });
 
 var shuffle = function(arr){
