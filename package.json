@@ -5,6 +5,7 @@
     "body-parser": "~1.0.1",
     "express": "~4.0.0",
     "firebase": "^3.7.3",
-    "firebase-admin": "^4.1.4"
+    "firebase-admin": "^4.1.4",
+    "sha.js": "^2.4.8"
   }
 }

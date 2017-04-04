@@ -1,8 +1,8 @@
 var express    = require('express');
 var app        = express();
 var bodyParser = require('body-parser');
-
-var firebase = require("firebase-admin");
+var sha        = require('sha.js')
+var firebase   = require("firebase-admin");
 
 var serviceAccount = require("./auth/activities-test-a3871-firebase-adminsdk-971yy-829839ed20.json");
 
@@ -20,6 +20,42 @@ var shuffle = function(arr){
        arr[b] = a;
   }
   return arr;
+}
+
+var isValidCall= function (digest, currentUid){
+
+  const SECRET_KEY = "dsnsdhjhj332sdnm$sms092nvy!@5";
+  var sha256 = sha('sha256');
+  var hash = sha256.update(SECRET_KEY+currentUid, 'utf8').digest('hex');
+
+  console.log("hash:",hash);
+
+}
+
+var validateHeaderAuthorization = function(header){
+
+  if (header){
+
+    var arr = header.split(":");
+
+    if (arr.length==2){
+      const currentUid = arr[0];
+      const digest = arr[1];
+
+      if (isValidCall(digest, currentUid)){
+        return '';
+      }else{
+
+        return 'Invalid credentials';
+      }
+
+    }else{
+      return 'Invalid credentials';
+    }
+
+  }else{
+    return 'Not authorized!';
+  }
 }
 
 var userMatchedExists = function(db, currentUid, uid) {
@@ -52,7 +88,7 @@ var getNextProfile = function(db, res, map,currentUid, matches){
        let obj = map[userId];
 
        userMatchedExists(db, currentUid, userId).then(function(exists){
-         exists = true;
+         exists = true; //for now
          if (exists){
            console.log("Added");
            matches[userId] = obj
@@ -110,6 +146,13 @@ router.get('/match/:uid', function(req, res) {
 
     var uid = req.params.uid;
     console.log('uid:',uid);
+
+    var header=req.headers['authorization'];
+    console.log("header:",header);
+
+    const error = validateHeaderAuthorization(header);
+    console.log("401:", error);
+    //if (error) res.send(401, error);
 
     var db = firebase.app().database();
     var ref = db.ref('user_profiles');
