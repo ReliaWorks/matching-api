@@ -4,16 +4,12 @@ var bodyParser = require('body-parser');
 
 var firebase = require("firebase-admin");
 
-
 var serviceAccount = require("./auth/activities-test-a3871-firebase-adminsdk-971yy-829839ed20.json");
 
 firebase.initializeApp({
   credential: firebase.credential.cert(serviceAccount),
-  databaseURL: "https://wavelength-d78bb.firebaseio.com"
+  databaseURL: "https://activities-test-a3871.firebaseio.com"
 });
-
-
-firebase.initializeApp(config);
 
 var shuffle = function(arr){
 
@@ -56,8 +52,8 @@ var getNextProfile = function(db, res, map,currentUid, matches){
        let obj = map[userId];
 
        userMatchedExists(db, currentUid, userId).then(function(exists){
-
-         if (!exists){
+         exists = true;
+         if (exists){
            console.log("Added");
            matches[userId] = obj
          }
