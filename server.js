@@ -88,18 +88,8 @@ var getNextProfile = function(db, res, map,currentUid, matches){
        let obj = map[userId];
 
        userMatchedExists(db, currentUid, userId).then(function(exists){
-         exists = true; //for now{
-  "rules": {
-  	".read": true,
-    ".write": true,
-    "user_matches": {
-      "$userKey":{
-	      ".indexOn": ["matched"]
-      }
-    }
-  }
-}
-         if (exists){
+
+         if (!exists){
            console.log("Added");
            matches[userId] = obj
          }
