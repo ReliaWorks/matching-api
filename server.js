@@ -3,16 +3,20 @@ var app        = express();
 var bodyParser = require('body-parser');
 var sha        = require('sha.js')
 var firebase   = require("firebase-admin");
+const SECRET_KEY      = "dsnsdhjhj332sdnm$sms092nvy!@5";
+const FIREBASE_STRING_BUDDIES    = "https://activities-test-a3871.firebaseio.com";
+const FIREBASE_STRING_WAVELENGTH = "https://activities-test-a3871.firebaseio.com";
 
-var serviceAccount = require("./auth/activities-test-a3871-firebase-adminsdk-971yy-829839ed20.json");
+// INIT
+var serviceAccount = require("./auth/admin/buddies.json");
 
 firebase.initializeApp({
   credential: firebase.credential.cert(serviceAccount),
-  databaseURL: "https://activities-test-a3871.firebaseio.com"
+  databaseURL: FIREBASE_STRING_BUDDIES
 });
 
+// Helper functions
 var shuffle = function(arr){
-
   for (var i = 0; i < arr.length; i++){
        var a = arr[i];
        var b = Math.floor(Math.random() * arr.length);
@@ -24,7 +28,6 @@ var shuffle = function(arr){
 
 var isValidCall= function (digest, currentUid){
 
-  const SECRET_KEY = "dsnsdhjhj332sdnm$sms092nvy!@5";
   var sha256 = sha('sha256');
   var hash = sha256.update(SECRET_KEY+currentUid, 'utf8').digest('hex');
 
@@ -35,7 +38,6 @@ var isValidCall= function (digest, currentUid){
 var validateHeaderAuthorization = function(header){
 
   if (header){
-
     var arr = header.split(":");
 
     if (arr.length==2){
@@ -126,11 +128,12 @@ var getNextProfile = function(db, res, map,currentUid, matches){
 
      res.json(shuffled);
 
-
   }
 
 }
 
+
+// Server Handlers
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
