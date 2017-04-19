@@ -1,11 +1,13 @@
 var express    = require('express');
 var app        = express();
 var bodyParser = require('body-parser');
+var axios      = require('axios');
 var sha        = require('sha.js')
 var firebase   = require("firebase-admin");
 const SECRET_KEY      = "dsnsdhjhj332sdnm$sms092nvy!@5";
 const FIREBASE_STRING_BUDDIES    = "https://activities-test-a3871.firebaseio.com";
 const FIREBASE_STRING_WAVELENGTH = "https://activities-test-a3871.firebaseio.com";
+const MAP_API_KEY = 'AIzaSyACWmDGmgYDEvWuzvjpDn9GYjrafCZOSKw';
 
 // INIT
 var serviceAccount = require("./auth/admin/buddies.json");
@@ -167,6 +169,86 @@ router.get('/match/:uid', function(req, res) {
       console.log(error);
       res.json({});
     });
+
+});
+
+router.get('/location/:latLong', function(req, res) {
+
+    var header=req.headers['authorization'];
+    console.log("header:",header);
+
+    const error = validateHeaderAuthorization(header);
+    console.log("401:", error);
+    //if (error) res.send(401, error);
+
+    var latLongStr = req.params.latLong;
+    console.log('latLongStr:',latLongStr);
+    var arr = latLongStr.split(':');
+
+    if (arr.length!=2){
+      res.send(501, "Invalid parameter");
+      return;
+    }
+
+    var latitude = arr[0];
+    var longitude = arr[1];
+
+
+    axios.get(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${MAP_API_KEY}`)
+      .then(function (response) {
+
+        if ( response.data
+              && response.data.results
+              && response.data.results.length
+              && response.data.results[0].address_components
+              && response.data.results[0].address_components.length
+            )
+        {
+            var addressComponents = response.data.results[0].address_components;
+
+            var location = {
+              city:  '',
+              state: '',
+              country: ''
+            };
+
+            for (var i = 0; i < addressComponents.length; i++) {
+                var component = addressComponents[i];
+                console.log(component);
+                switch(component.types[0]) {
+                    case 'locality':
+                        location.city = component.long_name;
+                        break;
+                    case 'political':
+                        if (!location.city)
+                          location.city = component.long_name;
+                        break;
+                    case 'administrative_area_level_1':
+                        location.state = component.short_name;
+                        break;
+                    case 'country':
+                        location.country = component.long_name;
+                        break;
+                }
+            };
+
+
+            res.json(location);
+
+
+        }else {
+          console.log('Data',response.data);
+          res.send(501, "Couldn't retrieve location");
+          return;
+        }
+
+      })
+      .catch(function (error) {
+        console.log(error);
+        res.send(501, error);
+        return;
+      });
+
 
 });
 

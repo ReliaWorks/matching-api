@@ -2,6 +2,7 @@
   "name": "node-api",
   "main": "server.js",
   "dependencies": {
+    "axios": "^0.16.1",
     "body-parser": "~1.0.1",
     "express": "~4.0.0",
     "firebase": "^3.7.3",
