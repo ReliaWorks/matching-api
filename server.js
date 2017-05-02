@@ -134,6 +134,65 @@ var getNextProfile = function(db, res, map,currentUid, matches){
 
 }
 
+var getLocationFromGoogleMapAPI = function(res, db, locationHash, latitude, longitude){
+
+  axios.get(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${MAP_API_KEY}`)
+    .then(function (response) {
+
+      if ( response.data
+            && response.data.results
+            && response.data.results.length
+            && response.data.results[0].address_components
+            && response.data.results[0].address_components.length
+          )
+      {
+          var addressComponents = response.data.results[0].address_components;
+
+          var location = {
+            city:  '',
+            state: '',
+            country: ''
+          };
+
+          for (var i = 0; i < addressComponents.length; i++) {
+              var component = addressComponents[i];
+              console.log(component);
+              switch(component.types[0]) {
+                  case 'locality':
+                      location.city = component.long_name;
+                      break;
+                  case 'political':
+                      if (!location.city)
+                        location.city = component.long_name;
+                      break;
+                  case 'administrative_area_level_1':
+                      location.state = component.short_name;
+                      break;
+                  case 'country':
+                      location.country = component.long_name;
+                      break;
+              }
+          };
+
+          db.ref(`location_cache/${locationHash}`).set(location);
+          res.json(location);
+
+
+      }else {
+        console.log('Data',response.data);
+        res.send(501, "Couldn't retrieve location");
+        return;
+      }
+
+    })
+    .catch(function (error) {
+      console.log(error);
+      res.send(501, error);
+      return;
+    });
+
+}
+
 
 // Server Handlers
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -174,6 +233,8 @@ router.get('/match/:uid', function(req, res) {
 
 router.get('/location/:latLong', function(req, res) {
 
+    var db = firebase.app().database();
+
     var header=req.headers['authorization'];
     console.log("header:",header);
 
@@ -192,63 +253,24 @@ router.get('/location/:latLong', function(req, res) {
 
     var latitude = arr[0];
     var longitude = arr[1];
+    var sha256 = sha('sha256');
 
+    var locationHash = sha256.update(latitude + longitude, 'utf8').digest('hex');
 
-    axios.get(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${MAP_API_KEY}`)
-      .then(function (response) {
+    db.ref(`location_cache/${locationHash}`)
+      .once('value', snapshot => {
 
-        if ( response.data
-              && response.data.results
-              && response.data.results.length
-              && response.data.results[0].address_components
-              && response.data.results[0].address_components.length
-            )
-        {
-            var addressComponents = response.data.results[0].address_components;
+        const cacheExists = snapshot.val() !== null
 
-            var location = {
-              city:  '',
-              state: '',
-              country: ''
-            };
-
-            for (var i = 0; i < addressComponents.length; i++) {
-                var component = addressComponents[i];
-                console.log(component);
-                switch(component.types[0]) {
-                    case 'locality':
-                        location.city = component.long_name;
-                        break;
-                    case 'political':
-                        if (!location.city)
-                          location.city = component.long_name;
-                        break;
-                    case 'administrative_area_level_1':
-                        location.state = component.short_name;
-                        break;
-                    case 'country':
-                        location.country = component.long_name;
-                        break;
-                }
-            };
-
-
-            res.json(location);
-
-
-        }else {
-          console.log('Data',response.data);
-          res.send(501, "Couldn't retrieve location");
-          return;
+        if (cacheExists){
+          console.log('Found in cache');
+          res.json(snapshot.val());
+        }else{
+          console.log('Not in the cache', latLongStr);
+          getLocationFromGoogleMapAPI(res, db, locationHash, latitude, longitude);
         }
 
-      })
-      .catch(function (error) {
-        console.log(error);
-        res.send(501, error);
-        return;
-      });
-
+    });
 
 });
 
