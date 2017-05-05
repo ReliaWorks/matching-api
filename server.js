@@ -46,8 +46,8 @@ var validateHeaderAuthorization = function(header){
     var arr = header.split(":");
 
     if (arr.length==2){
-      const currentUid = arr[0];
-      const digest = arr[1];
+      const digest = arr[0];
+      const currentUid = arr[1];
 
       if (isValidCall(digest, currentUid)){
         return '';
@@ -218,9 +218,11 @@ router.get('/match/:uid', function(req, res) {
     console.log("header:",header);
 
     const error = validateHeaderAuthorization(header);
-    console.log("401:", error);
+
     if (error) {
-      //res.send(401, error);
+      console.log("401:", error);
+      res.send(401, error);
+      return;
     };
 
     var db = firebase.app().database();
@@ -244,9 +246,11 @@ router.get('/location/:latLong', function(req, res) {
     console.log("header:",header);
 
     const error = validateHeaderAuthorization(header);
-    console.log("401:", error);
+
     if (error) {
-      //res.send(401, error);
+      console.log("401:", error);
+      res.send(401, error);
+      return;
     };
 
     var latLongStr = req.params.latLong;
