@@ -2,14 +2,14 @@ var express    = require('express');
 var app        = express();
 var bodyParser = require('body-parser');
 var axios      = require('axios');
-var sha        = require('sha.js')
+var jsSHA      = require("jssha");
 var firebase   = require("firebase-admin");
-const SECRET_KEY      = "dsnsdhjhj332sdnm$sms092nvy!@5";
+const API_SECRET_KEY      = "dsnsdhjhj332sdnm$sms092nvy!@5";
 const FIREBASE_STRING_BUDDIES    = "https://activities-test-a3871.firebaseio.com";
 const FIREBASE_STRING_WAVELENGTH = "https://activities-test-a3871.firebaseio.com";
 const MAP_API_KEY = 'AIzaSyACWmDGmgYDEvWuzvjpDn9GYjrafCZOSKw';
 
-// INIT
+// INITa
 var serviceAccount = require("./auth/admin/buddies.json");
 
 firebase.initializeApp({
@@ -30,10 +30,13 @@ var shuffle = function(arr){
 
 var isValidCall= function (digest, currentUid){
 
-  var sha256 = sha('sha256');
-  var hash = sha256.update(SECRET_KEY+currentUid, 'utf8').digest('hex');
+  const shaObj = new jsSHA("SHA-256", "TEXT");
+  shaObj.update(API_SECRET_KEY + currentUid);
+  const hash = shaObj.getHash("HEX");
 
   console.log("hash:",hash);
+
+  return digest == hash;
 
 }
 
@@ -216,7 +219,9 @@ router.get('/match/:uid', function(req, res) {
 
     const error = validateHeaderAuthorization(header);
     console.log("401:", error);
-    //if (error) res.send(401, error);
+    if (error) {
+      res.send(401, error);
+    };
 
     var db = firebase.app().database();
     var ref = db.ref('user_profiles');
@@ -240,7 +245,9 @@ router.get('/location/:latLong', function(req, res) {
 
     const error = validateHeaderAuthorization(header);
     console.log("401:", error);
-    //if (error) res.send(401, error);
+    if (error) {
+      res.send(401, error);
+    };
 
     var latLongStr = req.params.latLong;
     console.log('latLongStr:',latLongStr);
@@ -253,9 +260,9 @@ router.get('/location/:latLong', function(req, res) {
 
     var latitude = arr[0];
     var longitude = arr[1];
-    var sha256 = sha('sha256');
-
-    var locationHash = sha256.update(latitude + longitude, 'utf8').digest('hex');
+    const shaObj = new jsSHA("SHA-256", "TEXT");
+    shaObj.update(latitude + longitude);
+    const locationHash = shaObj.getHash("HEX");
 
     db.ref(`location_cache/${locationHash}`)
       .once('value', snapshot => {

@@ -7,6 +7,6 @@
     "express": "~4.0.0",
     "firebase": "^3.7.3",
     "firebase-admin": "^4.1.4",
-    "sha.js": "^2.4.8"
+    "jssha": "^2.2.0"
   }
 }
