@@ -220,7 +220,7 @@ router.get('/match/:uid', function(req, res) {
     const error = validateHeaderAuthorization(header);
     console.log("401:", error);
     if (error) {
-      res.send(401, error);
+      //res.send(401, error);
     };
 
     var db = firebase.app().database();
@@ -246,7 +246,7 @@ router.get('/location/:latLong', function(req, res) {
     const error = validateHeaderAuthorization(header);
     console.log("401:", error);
     if (error) {
-      res.send(401, error);
+      //res.send(401, error);
     };
 
     var latLongStr = req.params.latLong;
