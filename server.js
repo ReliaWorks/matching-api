@@ -221,8 +221,8 @@ router.get('/match/:uid', function(req, res) {
 
     if (error) {
       console.log("401:", error);
-      //res.send(401, error);
-      //return;
+      res.send(401, error);
+      return;
     };
 
     var db = firebase.app().database();
