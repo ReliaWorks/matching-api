@@ -90,9 +90,9 @@ var getNextProfile = function(db, res, map,currentUid, matches){
 
      console.log("loop:",userId);
 
-     if (userId!=currentUid){
+     let obj = map[userId];
 
-       let obj = map[userId];
+     if (userId!=currentUid && obj.first_name){
 
        userMatchedExists(db, currentUid, userId).then(function(exists){
 
@@ -221,15 +221,15 @@ router.get('/match/:uid', function(req, res) {
 
     if (error) {
       console.log("401:", error);
-      res.send(401, error);
-      return;
+      //res.send(401, error);
+      //return;
     };
 
     var db = firebase.app().database();
     var ref = db.ref('user_profiles');
     ref.once('value')
      .then(function (snap) {
-       console.log("start");
+       console.log("start", snap.val());
        getNextProfile(db, res, snap.val(),uid, {});
     }).catch(function(error){
       console.log(error);
