@@ -294,10 +294,14 @@ var getLocationArea = (fb, currentUser, path, areaIndexValue, results) => {
 
                 keys.forEach((otherUserId) => {
                     //get other user
+                    const currentUserId = currentUser.uid;
+
                     getUser(fb, currentUser, otherUserId, areaIndexValue).then((otherUser) => {
 
                         const uidOther = otherUser.uid
-                        results[uidOther] = otherUser;
+
+                        if (currentUserId !=uidOther)
+                            results[uidOther] = otherUser;
 
                         delete keysLeft[otherUser.uid];
 
