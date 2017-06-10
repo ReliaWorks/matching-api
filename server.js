@@ -478,18 +478,29 @@ router.get('/match_geo/:uid', function(req, res) {
 
 router.get('/match/:uid', function(req, res) {
 
-    //get users from locations
+    var uid = req.params.uid;
+    console.log('uid:',uid);
 
-    //get profile info and returned sort listed
+    var header=req.headers['authorization'];
+    console.log("header:",header);
 
+    const error = validateHeaderAuthorization(header);
+
+    if (error) {
+        console.log("401:", error);
+        res.send(401, error);
+        return;
+    };
+
+    var db = firebase.app().database();
     var ref = db.ref('user_profiles');
     ref.once('value')
-     .then(function (snap) {
-       console.log("start", snap.val());
-       getNextProfile(db, res, snap.val(),uid, {});
-    }).catch(function(error){
-      console.log(error);
-      res.json({});
+        .then(function (snap) {
+            console.log("start", snap.val());
+            getNextProfile(db, res, snap.val(),uid, {});
+        }).catch(function(error){
+        console.log(error);
+        res.json({});
     });
 
 });
