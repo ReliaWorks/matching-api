@@ -461,8 +461,10 @@ router.get('/match_geo/:uid', function(req, res) {
 
     db.ref(`user_profiles/${uid}`).once('value', snapshot => {
         if (snapshot.val()){
+            const currentUser = snapshot.val();
+            currentUser.uid = uid;
 
-            getLocationsFromUser(db, res, snapshot.val())
+            getLocationsFromUser(db, res, currentUser)
                 .then(function(results){
                     res.json(results);
                     return;
