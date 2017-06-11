@@ -205,7 +205,11 @@ var getLocationFromGoogleMapAPI = function(res, db, locationHash, latitude, long
 
 var stringToVariable = (str) => {
     if (str)
-        return str.replace(/\s+/g, '_').replace(/[^0-9a-z_]/gi, '').toLowerCase();
+        return str.replace(/\s+/g, '_')
+            .replace(/\++/g, '')
+            .replace(/\-+/g, 'N')
+            .replace(/[^0-9a-z_]/gi, '')
+            .toLowerCase();
     return str;
 };
 
@@ -480,8 +484,8 @@ router.get('/match_geo/:uid', function(req, res) {
 
     if (error) {
         console.log("401:", error);
-        //res.send(401, error);
-        //return;
+        res.send(401, error);
+        return;
     };
 
     var db = firebase.app().database();
