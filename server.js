@@ -296,29 +296,43 @@ var getLocationArea = (fb, currentUser, path, areaIndexValue, results) => {
                     //get other user
                     const currentUserId = currentUser.uid;
 
-                    getUser(fb, currentUser, otherUserId, areaIndexValue).then((otherUser) => {
+                    if (currentUserId ==otherUserId){
 
-                        const uidOther = otherUser.uid
-
-                        if (currentUserId !=uidOther)
-                            results[uidOther] = otherUser;
-
-                        delete keysLeft[otherUser.uid];
+                        delete keysLeft[otherUserId];
 
                         if (Object.keys(keysLeft).length==0)
                             resolve(results);
 
-                    }).catch(()=>{
-                        delete keysLeft[otherUserId];
-                    });
+                    }else{
+                        getUser(fb, currentUser, otherUserId, areaIndexValue).then((otherUser) => {
 
+
+                            console.log('User:',otherUser.uid, otherUser.proximityIndex);
+                            const uidOther = otherUser.uid
+
+                            if (!results[uidOther])
+                                results[uidOther] = otherUser;
+
+                            delete keysLeft[otherUser.uid];
+
+                            if (Object.keys(keysLeft).length==0)
+                                resolve(results);
+
+                        }).catch((e)=>{
+                            delete keysLeft[otherUserId];
+                            if (Object.keys(keysLeft).length==0)
+                                resolve(results);
+                        });
+                    }
 
                 });
             }else {
                 resolve(results);
+                console.log('node data');
             }
-        }).catch(function () {
+        }).catch(function (e) {
             resolve(results);
+            console.log('a2',e);
         });
     });
 
@@ -330,18 +344,33 @@ var getUser = (fb, currentUser, otherUserId, areaIndexValue) => {
     var promise = new Promise((resolve, reject)=>{
 
         fb.ref(`user_profiles/${otherUserId}`).once('value', snap => {
+
+            console.log('getUser', otherUserId);
             const otherUser = snap.val();
             otherUser.uid = otherUserId;
             if (snap.val()) {
+
                 fb.ref(`user_matches/${currentUser.uid}/${otherUserId}`).once('value', (snap2) => {
+                    console.log(`user_matches/${currentUser.uid}/${otherUserId}`, snap2.val());
                     //is not in user matches already
                     if (!snap2.val()) {
                         const proximityIndex = getProximityIndex(currentUser, otherUser, areaIndexValue);
                         otherUser.proximityIndex = proximityIndex;
+
                         resolve(otherUser);
+                    }else{
+                        reject();
                     }
+                }).catch((e)=>{
+                    console.log('error user_matches', e);
+                    reject();
                 });
+            }else{
+                console.log('no data user_profiles');
+                reject();
             }
+        }).catch(()=>{
+            reject();
         });
     });
 
@@ -372,12 +401,12 @@ var getLocationsFromUser = function (db, res, currentUser) {
         if (!(location && location.country && location.state)) reject();
 
         const pathNeighborhood = `location_areas/countries/${stringToVariable(location.country)}/states/${stringToVariable(location.state)}/counties/${stringToVariable(location.county)}/cities/${stringToVariable(location.city)}/neighborhoods/${stringToVariable(location.neighborhood)}/users`;
-        const pathCity = `location_areas/countries/${stringToVariable(location.country)}/states/${stringToVariable(location.state)}/counties/${stringToVariable(location.county)}/users`;
-        const pathCounty = `location_areas/countries/${stringToVariable(location.country)}/states/${stringToVariable(location.state)}/counties/${stringToVariable(location.county)}/cities/${stringToVariable(location.city)}/users`;
-        const pathState = `location_areas/countries/${stringToVariable(location.country)}/states/${stringToVariable(location.state)}/counties/${stringToVariable(location.county)}/cities/${stringToVariable(location.city)}/neighborhoods/${stringToVariable(location.neighborhood)}/users`;
+        const pathCity= `location_areas/countries/${stringToVariable(location.country)}/states/${stringToVariable(location.state)}/counties/${stringToVariable(location.county)}/cities/${stringToVariable(location.city)}/users`;
+        const pathCounty = `location_areas/countries/${stringToVariable(location.country)}/states/${stringToVariable(location.state)}/counties/${stringToVariable(location.county)}/users`;
+        const pathState = `location_areas/countries/${stringToVariable(location.country)}/states/${stringToVariable(location.state)}/users`;
 
         getLocationArea(db, currentUser, pathNeighborhood, 10000, {}).then((results) => {
-
+            console.log(pathNeighborhood);
             const keys = Object.keys(results);
 
             if (keys.length > LIMIT_RECORDS_LOCATION){
