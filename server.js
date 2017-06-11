@@ -10,7 +10,7 @@ const FIREBASE_STRING_WAVELENGTH = "https://activities-test-a3871.firebaseio.com
 const MAP_API_KEY = 'AIzaSyACWmDGmgYDEvWuzvjpDn9GYjrafCZOSKw';
 const LIMIT_RECORDS_LOCATION = 1000;
 
-const WEIGHTS_PROXIMITY_INDEX = { WEIGHT_AREA: 0.3,
+const WEIGHTS_PROXIMITY_INDEX = {
     WEIGHT_GEO_PROX: 0.1,
     WEIGHT_COMMON_AFFILIATION: 0.5,
     WEIGHT_COMMON_ACTIVITIES: 0.3,
@@ -264,7 +264,7 @@ var sameGenderIndex = (user1, user2) => {
 var getProximityIndex = (user1, user2, areaIndexValue) => {
     //proxIndex =  W1 Area + W2 LocProx +  W3 commonAffil + W4 commonAct + W5 genderCommon
     //where W1 + .. + Wn = 1
-    const { WEIGHT_AREA,
+    const {
         WEIGHT_GEO_PROX,
         WEIGHT_COMMON_AFFILIATION,
         WEIGHT_COMMON_ACTIVITIES,
