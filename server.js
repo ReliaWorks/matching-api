@@ -408,6 +408,7 @@ var getLocationsFromUser = function (db, res, currentUser) {
         const pathCity= `location_areas/countries/${stringToVariable(location.country)}/states/${stringToVariable(location.state)}/counties/${stringToVariable(location.county)}/cities/${stringToVariable(location.city)}/users`;
         const pathCounty = `location_areas/countries/${stringToVariable(location.country)}/states/${stringToVariable(location.state)}/counties/${stringToVariable(location.county)}/users`;
         const pathState = `location_areas/countries/${stringToVariable(location.country)}/states/${stringToVariable(location.state)}/users`;
+        const pathCountry = `location_areas/countries/${stringToVariable(location.country)}/users`;
 
         getLocationArea(db, currentUser, pathNeighborhood, 10000, {}).then((results) => {
             console.log(pathNeighborhood);
@@ -444,9 +445,21 @@ var getLocationsFromUser = function (db, res, currentUser) {
 
                             }else
                                 getLocationArea(db, currentUser, pathState, 120000, results).then((results) => {
-                                    const res = getSortedArray(results);
+                                    const keys = Object.keys(results);
 
-                                    resolve(res);
+                                    if (keys.length > LIMIT_RECORDS_LOCATION){
+
+                                        const res = getSortedArray(results);
+
+                                        resolve(res);
+
+                                    }else
+                                        getLocationArea(db, currentUser, pathCountry, 220000, results).then((results) => {
+                                            const res = getSortedArray(results);
+
+                                            resolve(res);
+
+                                        });
 
                                 });
                         });
