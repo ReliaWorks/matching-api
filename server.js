@@ -271,7 +271,7 @@ var getProximityIndex = (user1, user2, areaIndexValue) => {
         WEIGHT_COMMON_GENDER } = WEIGHTS_PROXIMITY_INDEX;
 
     const proxIndex = (areaIndexValue) +
-        (WEIGHT_GEO_PROX * getGeoDistance(user1.geoLocation.coords.latitude, user1.geoLocation.coords.longitude, user2.geoLocation.coords.latitude, user2.geoLocation.coords.longitude)) +
+        (WEIGHT_GEO_PROX *  1 / getGeoDistance(user1.geoLocation.coords.latitude, user1.geoLocation.coords.longitude, user2.geoLocation.coords.latitude, user2.geoLocation.coords.longitude)) +
         (WEIGHT_COMMON_AFFILIATION * numberCommonAffiliations(user1, user2)) +
         (WEIGHT_COMMON_ACTIVITIES * numberCommonActivities(user1, user2)) +
         (WEIGHT_COMMON_GENDER * sameGenderIndex(user1, user2));
