@@ -9,12 +9,14 @@ const FIREBASE_STRING_BUDDIES    = "https://activities-test-a3871.firebaseio.com
 const FIREBASE_STRING_WAVELENGTH = "https://activities-test-a3871.firebaseio.com";
 const MAP_API_KEY = 'AIzaSyACWmDGmgYDEvWuzvjpDn9GYjrafCZOSKw';
 const LIMIT_RECORDS_LOCATION = 1000;
+const NUM_AFFILIATIONS = 15;
+const NUM_ACTIVITIES = 12;
 
-const WEIGHTS_PROXIMITY_INDEX = {
-    WEIGHT_GEO_PROX: 0.1,
-    WEIGHT_COMMON_AFFILIATION: 0.5,
-    WEIGHT_COMMON_ACTIVITIES: 0.3,
-    WEIGHT_COMMON_GENDER: 0.1 };
+const WEIGHTS_DISTANCE_INDEX = {
+    WEIGHT_GEO_PROX: 10,
+    WEIGHT_COMMON_AFFILIATION: 50,
+    WEIGHT_COMMON_ACTIVITIES: 30,
+    WEIGHT_COMMON_GENDER: 10 };
 
 // INITa
 var serviceAccount = require("./auth/admin/buddies.json");
@@ -258,25 +260,28 @@ var numberCommonActivities = (user1, user2) => {
 };
 
 var sameGenderIndex = (user1, user2) => {
-    return (user1.gender && user2.gender && user1.gender == user2.gender) ? 1 : 0;
+    //if they have the same index they are closer in the array
+    return (user1.gender && user2.gender && user1.gender == user2.gender) ? 0 : 1;
 };
 
-var getProximityIndex = (user1, user2, areaIndexValue) => {
-    //proxIndex =  W1 Area + W2 LocProx +  W3 commonAffil + W4 commonAct + W5 genderCommon
+var getDistanceIndex = (user1, user2, areaIndexValue) => {
+    //distanceIndex =  W1 Area + W2 LocProx +  W3 commonAffil + W4 commonAct + W5 genderCommon
     //where W1 + .. + Wn = 1
     const {
         WEIGHT_GEO_PROX,
         WEIGHT_COMMON_AFFILIATION,
         WEIGHT_COMMON_ACTIVITIES,
-        WEIGHT_COMMON_GENDER } = WEIGHTS_PROXIMITY_INDEX;
+        WEIGHT_COMMON_GENDER } = WEIGHTS_DISTANCE_INDEX;
 
-    const proxIndex = (areaIndexValue) +
-        (WEIGHT_GEO_PROX *  1 / getGeoDistance(user1.geoLocation.coords.latitude, user1.geoLocation.coords.longitude, user2.geoLocation.coords.latitude, user2.geoLocation.coords.longitude)) +
-        (WEIGHT_COMMON_AFFILIATION * numberCommonAffiliations(user1, user2)) +
-        (WEIGHT_COMMON_ACTIVITIES * numberCommonActivities(user1, user2)) +
+    const distanceIndex = (areaIndexValue) +
+        (WEIGHT_GEO_PROX *  getGeoDistance(user1.geoLocation.coords.latitude, user1.geoLocation.coords.longitude, user2.geoLocation.coords.latitude, user2.geoLocation.coords.longitude)) +
+        (WEIGHT_COMMON_AFFILIATION * (NUM_AFFILIATIONS - numberCommonAffiliations(user1, user2))) +
+        (WEIGHT_COMMON_ACTIVITIES * (NUM_ACTIVITIES - numberCommonActivities(user1, user2))) +
         (WEIGHT_COMMON_GENDER * sameGenderIndex(user1, user2));
 
-    return Math.round(proxIndex);
+    console.log('distanceIndex', distanceIndex);
+
+    return Math.round(distanceIndex);
 };
 
 
@@ -311,7 +316,7 @@ var getLocationArea = (fb, currentUser, path, areaIndexValue, results) => {
                         getUser(fb, currentUser, otherUserId, areaIndexValue).then((otherUser) => {
 
 
-                            console.log('User:',otherUser.uid, otherUser.proximityIndex);
+                            console.log('User:',otherUser.uid, otherUser.distanceIndex);
                             const uidOther = otherUser.uid
 
                             if (!results[uidOther])
@@ -358,8 +363,8 @@ var getUser = (fb, currentUser, otherUserId, areaIndexValue) => {
                     console.log(`user_matches/${currentUser.uid}/${otherUserId}`, snap2.val());
                     //is not in user matches already
                     if (!snap2.val()) {
-                        const proximityIndex = getProximityIndex(currentUser, otherUser, areaIndexValue);
-                        otherUser.proximityIndex = proximityIndex;
+                        const distanceIndex = getDistanceIndex(currentUser, otherUser, areaIndexValue);
+                        otherUser.distanceIndex = distanceIndex;
 
                         resolve(otherUser);
                     }else{
@@ -389,7 +394,7 @@ var getSortedArray = (results) => {
     });
 
     sortedResults.sort(function(a, b) {
-        return a.proximityIndex - b.proximityIndex;
+        return a.distanceIndex - b.distanceIndex;
     });
 
     return sortedResults;
