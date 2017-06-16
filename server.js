@@ -27,15 +27,6 @@ firebase.initializeApp({
 });
 
 // Helper functions
-var shuffle = function(arr){
-    for (var i = 0; i < arr.length; i++){
-        var a = arr[i];
-        var b = Math.floor(Math.random() * arr.length);
-        arr[i] = arr[b];
-        arr[b] = a;
-    }
-    return arr;
-}
 
 var isValidCall= function (digest, currentUid){
 
@@ -72,78 +63,6 @@ var validateHeaderAuthorization = function(header){
     }else{
         return 'Not authorized!';
     }
-}
-
-var userMatchedExists = function(db, currentUid, uid) {
-    return new Promise(function(resolve, reject) {
-        const str = `user_matches/${currentUid}/${uid}`;
-        var ref = db.ref(str);
-        console.log("ref:",str);
-        ref.once('value')
-            .then(function (snap) {
-                console.log("branch found:",snap.val());
-                resolve(snap.val()!==null);
-            })
-            .catch( function(error){
-                console.log("branch failed:");
-                reject('Failed');
-            });
-    });
-}
-
-var getNextProfile = function(db, res, map,currentUid, matches){
-
-    if(Object.keys(map).length){
-
-        const userId = Object.keys(map)[0];
-
-        console.log("loop:",userId);
-
-        let obj = map[userId];
-
-        if (userId!=currentUid && obj.first_name){
-
-            userMatchedExists(db, currentUid, userId).then(function(exists){
-
-                if (!exists){
-                    console.log("Added");
-                    matches[userId] = obj
-                }
-
-                delete  map[userId];
-
-                getNextProfile(db, res, map,currentUid, matches);
-
-            }).catch(function(error){
-
-                console.log("Added e");
-                matches[userId] = obj
-
-                delete  map[userId];
-
-                getNextProfile(db, res, map,currentUid, matches);
-            });
-
-        }else{
-            console.log("Diff");
-            delete  map[userId];
-            getNextProfile(db, res, map,currentUid, matches);
-        }
-
-    }else{
-
-        const keys = shuffle(Object.keys(matches));
-
-        let shuffled = {};
-
-        for (var key in keys){
-            shuffled[keys[key]] = matches[keys[key]];
-        }
-
-        res.json(shuffled);
-
-    }
-
 }
 
 var getLocationFromGoogleMapAPI = function(res, db, locationHash, latitude, longitude){
@@ -518,84 +437,8 @@ router.get('/match_geo/:uid', function(req, res) {
             return;
         }
     });
-
 });
 
-router.get('/match/:uid', function(req, res) {
-
-    var uid = req.params.uid;
-    console.log('uid:',uid);
-
-    var header=req.headers['authorization'];
-    console.log("header:",header);
-
-    const error = validateHeaderAuthorization(header);
-
-    if (error) {
-        console.log("401:", error);
-        res.send(401, error);
-        return;
-    };
-
-    var db = firebase.app().database();
-    var ref = db.ref('user_profiles');
-    ref.once('value')
-        .then(function (snap) {
-            console.log("start", snap.val());
-            getNextProfile(db, res, snap.val(),uid, {});
-        }).catch(function(error){
-        console.log(error);
-        res.json({});
-    });
-
-});
-
-router.get('/location/:latLong', function(req, res) {
-
-    var db = firebase.app().database();
-
-    var header=req.headers['authorization'];
-    console.log("header:",header);
-
-    const error = validateHeaderAuthorization(header);
-
-    if (error) {
-        console.log("401:", error);
-        res.send(401, error);
-        return;
-    };
-
-    var latLongStr = req.params.latLong;
-    console.log('latLongStr:',latLongStr);
-    var arr = latLongStr.split(':');
-
-    if (arr.length!=2){
-        res.send(501, "Invalid parameter");
-        return;
-    }
-
-    var latitude = arr[0];
-    var longitude = arr[1];
-    const shaObj = new jsSHA("SHA-256", "TEXT");
-    shaObj.update(latitude + longitude);
-    const locationHash = shaObj.getHash("HEX");
-
-    db.ref(`location_cache/${locationHash}`)
-        .once('value', snapshot => {
-
-            const cacheExists = snapshot.val() !== null
-
-            if (cacheExists){
-                console.log('Found in cache');
-                res.json(snapshot.val());
-            }else{
-                console.log('Not in the cache', latLongStr);
-                getLocationFromGoogleMapAPI(res, db, locationHash, latitude, longitude);
-            }
-
-        });
-
-});
 
 app.use('/', router);
 
