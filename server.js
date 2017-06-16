@@ -65,65 +65,6 @@ var validateHeaderAuthorization = function(header){
     }
 }
 
-var getLocationFromGoogleMapAPI = function(res, db, locationHash, latitude, longitude){
-
-    axios.get(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${MAP_API_KEY}`)
-        .then(function (response) {
-
-            if ( response.data
-                && response.data.results
-                && response.data.results.length
-                && response.data.results[0].address_components
-                && response.data.results[0].address_components.length
-            )
-            {
-                var addressComponents = response.data.results[0].address_components;
-
-                var location = {
-                    city:  '',
-                    state: '',
-                    country: ''
-                };
-
-                for (var i = 0; i < addressComponents.length; i++) {
-                    var component = addressComponents[i];
-                    console.log(component);
-                    switch(component.types[0]) {
-                        case 'locality':
-                            location.city = component.long_name;
-                            break;
-                        case 'political':
-                            if (!location.city)
-                                location.city = component.long_name;
-                            break;
-                        case 'administrative_area_level_1':
-                            location.state = component.short_name;
-                            break;
-                        case 'country':
-                            location.country = component.long_name;
-                            break;
-                    }
-                };
-
-                db.ref(`location_cache/${locationHash}`).set(location);
-                res.json(location);
-
-
-            }else {
-                console.log('Data',response.data);
-                res.send(501, "Couldn't retrieve location");
-                return;
-            }
-
-        })
-        .catch(function (error) {
-            console.log(error);
-            res.send(501, error);
-            return;
-        });
-
-}
-
 var stringToVariable = (str) => {
     if (str)
         return str.replace(/\s+/g, '_')
@@ -224,7 +165,7 @@ var getLocationArea = (fb, currentUser, path, areaIndexValue, results) => {
                     //get other user
                     const currentUserId = currentUser.uid;
 
-                    if (currentUserId ==otherUserId){
+                    if (currentUserId==otherUserId){
 
                         delete keysLeft[otherUserId];
 
@@ -279,12 +220,12 @@ var getUser = (fb, currentUser, otherUserId, areaIndexValue) => {
             if (snap.val()) {
 
                 fb.ref(`user_matches/${currentUser.uid}/${otherUserId}`).once('value', (snap2) => {
-                    console.log(`user_matches/${currentUser.uid}/${otherUserId}`, snap2.val());
+                    const data = snap2.val();
                     //is not in user matches already
-                    if (!snap2.val()) {
+                    if (!data || (data && !data.matched)) {
                         const distanceIndex = getDistanceIndex(currentUser, otherUser, areaIndexValue);
                         otherUser.distanceIndex = distanceIndex;
-
+                        otherUser.viewed= data? data.viewed :false;
                         resolve(otherUser);
                     }else{
                         reject();
@@ -316,7 +257,21 @@ var getSortedArray = (results) => {
         return a.distanceIndex - b.distanceIndex;
     });
 
-    return sortedResults;
+    //not viewed goes first
+    const firstArr = [];
+    const restArr = [];
+
+    sortedResults.forEach((obj)=>{
+      if (obj.viewed){
+        restArr.push(obj);
+      }else{
+        firstArr.push(obj);
+      }
+    });
+
+    const arr = firstArr.concat(restArr);
+
+    return arr;
 }
 
 var getLocationsFromUser = function (db, res, currentUser) {
@@ -364,15 +319,12 @@ var getLocationsFromUser = function (db, res, currentUser) {
                             if (keys.length > LIMIT_RECORDS_LOCATION){
 
                                 const res = getSortedArray(results);
-
                                 resolve(res);
 
                             }else
                                 getLocationArea(db, currentUser, pathCountry, 200000, results).then((results) => {
                                   const res = getSortedArray(results);
-
                                   resolve(res);
-
                                 });
                         });
                 });
