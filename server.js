@@ -415,7 +415,7 @@ var getLocationsFromUser = function (db, res, currentUser) {
         const pathState = `location_areas/countries/${stringToVariable(location.country)}/states/${stringToVariable(location.state)}/users`;
         const pathCountry = `location_areas/countries/${stringToVariable(location.country)}/users`;
 
-        getLocationArea(db, currentUser, pathNeighborhood, 10000, {}).then((results) => {
+        getLocationArea(db, currentUser, pathCity, 1000, {}).then((results) => {
             console.log(pathNeighborhood);
             const keys = Object.keys(results);
 
@@ -426,7 +426,7 @@ var getLocationsFromUser = function (db, res, currentUser) {
                 resolve(res);
 
             }else
-                getLocationArea(db, currentUser, pathCity, 40000, results).then((results) => {
+                getLocationArea(db, currentUser, pathCounty, 50000, results).then((results) => {
 
                     const keys = Object.keys(results);
 
@@ -438,7 +438,7 @@ var getLocationsFromUser = function (db, res, currentUser) {
 
                     }
                     else
-                        getLocationArea(db, currentUser, pathCounty, 80000, results).then((results) => {
+                        getLocationArea(db, currentUser, pathState, 250000, results).then((results) => {
 
                             const keys = Object.keys(results);
 
@@ -449,22 +449,10 @@ var getLocationsFromUser = function (db, res, currentUser) {
                                 resolve(res);
 
                             }else
-                                getLocationArea(db, currentUser, pathState, 120000, results).then((results) => {
-                                    const keys = Object.keys(results);
+                                getLocationArea(db, currentUser, pathCountry, 120000, results).then((results) => {
+                                  const res = getSortedArray(results);
 
-                                    if (keys.length > LIMIT_RECORDS_LOCATION){
-
-                                        const res = getSortedArray(results);
-
-                                        resolve(res);
-
-                                    }else
-                                        getLocationArea(db, currentUser, pathCountry, 220000, results).then((results) => {
-                                            const res = getSortedArray(results);
-
-                                            resolve(res);
-
-                                        });
+                                  resolve(res);
 
                                 });
                         });
