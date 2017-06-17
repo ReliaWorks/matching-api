@@ -65,6 +65,16 @@ var validateHeaderAuthorization = function(header){
     }
 }
 
+var shuffle = function(arr){
+    for (var i = 0; i < arr.length; i++){
+        var a = arr[i];
+        var b = Math.floor(Math.random() * arr.length);
+        arr[i] = arr[b];
+        arr[b] = a;
+    }
+    return arr;
+}
+
 var stringToVariable = (str) => {
     if (str)
         return str.replace(/\s+/g, '_')
@@ -247,6 +257,27 @@ var getUser = (fb, currentUser, otherUserId, areaIndexValue) => {
 
 };
 
+var randomizeViewed = (arr) => {
+
+  const lowerBoundaryStateAndCountryUsers = 200000;
+  const firstArr = [];
+  const restArr = [];
+
+  arr.forEach((item) => {
+    if (item.distanceIndex < lowerBoundaryStateAndCountryUsers){
+      firstArr.push(item);
+    }else{
+      restArr.push(item);
+    }
+  });
+
+  const firstArrShuffled = shuffle(firstArr);
+  const restArrShuffled = shuffle(restArr);
+
+  return firstArrShuffled.concat(restArrShuffled);
+
+};
+
 var getSortedArray = (results) => {
 
     const sortedResults = Object.keys(results).map((key)=>{
@@ -258,18 +289,20 @@ var getSortedArray = (results) => {
     });
 
     //not viewed goes first
-    const firstArr = [];
-    const restArr = [];
+    const viewedArr = [];
+    const notViewedArr = [];
 
     sortedResults.forEach((obj)=>{
       if (obj.viewed){
-        restArr.push(obj);
+        viewedArr.push(obj);
       }else{
-        firstArr.push(obj);
+        notViewedArr.push(obj);
       }
     });
 
-    const arr = firstArr.concat(restArr);
+    const restArr = randomizeViewed(viewedArr);
+
+    const arr = notViewedArr.concat(restArr);
 
     return arr;
 }
