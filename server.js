@@ -225,9 +225,10 @@ var getUser = (fb, currentUser, otherUserId, areaIndexValue) => {
         fb.ref(`user_profiles/${otherUserId}`).once('value', snap => {
 
             console.log('getUser', otherUserId);
-            const otherUser = snap.val();
-            otherUser.uid = otherUserId;
+
             if (snap.val()) {
+                const otherUser = snap.val();
+                otherUser.uid = otherUserId;
 
                 fb.ref(`user_matches/${currentUser.uid}/${otherUserId}`).once('value', (snap2) => {
                     const data = snap2.val();
