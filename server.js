@@ -233,7 +233,13 @@ var getUser = (fb, currentUser, otherUserId, areaIndexValue) => {
                 fb.ref(`user_matches/${currentUser.uid}/${otherUserId}`).once('value', (snap2) => {
                     const data = snap2.val();
                     //is not in user matches already
-                    if (!data || (data && !data.liked)) {
+                    if ( (!data || (data && !data.liked))
+                        && (currentUser && otherUser
+                            && currentUser.geoLocation
+                            && otherUser.geoLocation
+                            && currentUser.geoLocation.coords
+                            && otherUser.geoLocation.coords)) {
+
                         const distanceIndex = getDistanceIndex(currentUser, otherUser, areaIndexValue);
                         otherUser.distanceIndex = distanceIndex;
                         otherUser.viewed= data? data.viewed :false;
@@ -246,7 +252,7 @@ var getUser = (fb, currentUser, otherUserId, areaIndexValue) => {
                     reject();
                 });
             }else{
-                console.log('no data user_profiles');
+                console.log('no data user_profiles:'+otherUserId);
                 reject();
             }
         }).catch(()=>{
