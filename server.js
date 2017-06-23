@@ -186,7 +186,7 @@ var getLocationArea = (fb, currentUser, path, areaIndexValue, results) => {
                         getUser(fb, currentUser, otherUserId, areaIndexValue).then((otherUser) => {
 
 
-                            console.log('User:',otherUser.uid, otherUser.distanceIndex);
+                            //console.log('User:',otherUser.uid, otherUser.distanceIndex);
                             const uidOther = otherUser.uid
 
                             if (!results[uidOther])
@@ -230,27 +230,30 @@ var getUser = (fb, currentUser, otherUserId, areaIndexValue) => {
                 const otherUser = snap.val();
                 otherUser.uid = otherUserId;
 
-                fb.ref(`user_matches/${currentUser.uid}/${otherUserId}`).once('value', (snap2) => {
-                    const data = snap2.val();
-                    //is not in user matches already
-                    if ( (!data || (data && !data.liked))
-                        && (currentUser && otherUser
-                            && currentUser.geoLocation
-                            && otherUser.geoLocation
-                            && currentUser.geoLocation.coords
-                            && otherUser.geoLocation.coords)) {
+                if (otherUser.status == 'ACTIVE')
+                    fb.ref(`user_matches/${currentUser.uid}/${otherUserId}`).once('value', (snap2) => {
+                        const data = snap2.val();
+                        //is not in user matches already
+                        if ( (!data || (data && !data.liked))
+                            && (currentUser && otherUser
+                                && currentUser.geoLocation
+                                && otherUser.geoLocation
+                                && currentUser.geoLocation.coords
+                                && otherUser.geoLocation.coords)) {
 
-                        const distanceIndex = getDistanceIndex(currentUser, otherUser, areaIndexValue);
-                        otherUser.distanceIndex = distanceIndex;
-                        otherUser.viewed= data? data.viewed :false;
-                        resolve(otherUser);
-                    }else{
+                            const distanceIndex = getDistanceIndex(currentUser, otherUser, areaIndexValue);
+                            otherUser.distanceIndex = distanceIndex;
+                            otherUser.viewed= data? data.viewed :false;
+                            resolve(otherUser);
+                        }else{
+                            reject();
+                        }
+                    }).catch((e)=>{
+                        console.log('error user_matches', e);
                         reject();
-                    }
-                }).catch((e)=>{
-                    console.log('error user_matches', e);
-                    reject();
-                });
+                    });
+                else
+                  reject();
             }else{
                 console.log('no data user_profiles:'+otherUserId);
                 reject();
