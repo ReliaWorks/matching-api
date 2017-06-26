@@ -5,8 +5,9 @@
     "axios": "^0.16.1",
     "body-parser": "~1.0.1",
     "express": "~4.0.0",
-    "firebase": "^3.7.3",
+    "firebase": "^3.9.0",
     "firebase-admin": "^4.1.4",
+    "geofire": "^4.1.2",
     "jssha": "^2.2.0"
   }
 }
