@@ -4,13 +4,17 @@ var bodyParser = require('body-parser');
 var axios      = require('axios');
 var jsSHA      = require("jssha");
 var firebase   = require("firebase-admin");
+var GeoFire    = require("geofire");
+
 const API_SECRET_KEY      = "dsnsdhjhj332sdnm$sms092nvy!@5";
 const FIREBASE_STRING_BUDDIES    = "https://activities-test-a3871.firebaseio.com";
-const FIREBASE_STRING_WAVELENGTH = "https://activities-test-a3871.firebaseio.com";
+const FIREBASE_STRING_WAVELENGTH = "https://wavelength-d78bb.firebaseio.com";
 const MAP_API_KEY = 'AIzaSyACWmDGmgYDEvWuzvjpDn9GYjrafCZOSKw';
 const LIMIT_RECORDS_LOCATION = 1000;
+const LIMIT_DEFAULT = 50;
 const NUM_AFFILIATIONS = 15;
 const NUM_ACTIVITIES = 12;
+const DISTANCE_RADIOUS = 1000; //km
 
 const WEIGHTS_DISTANCE_INDEX = {
     WEIGHT_GEO_PROX: 10,
@@ -134,7 +138,32 @@ var sameGenderIndex = (user1, user2) => {
     return (user1.gender && user2.gender && user1.gender == user2.gender) ? 0 : 1;
 };
 
-var getDistanceIndex = (user1, user2, areaIndexValue) => {
+var slice = (obj, start, limit) => {
+
+  const keys = Object.keys(obj);
+
+  const newObj = {};
+
+  let counter = 0;
+
+  let top = start + limit;
+
+  if (top > keys.length){
+    top = keys.length;
+  }
+
+  keys.forEach((key) =>{
+    if (counter >= start && counter <= top){
+      newObj[key] = obj[key];
+    };
+    counter++;
+
+  });
+
+  return newObj;
+}
+
+var getDistanceIndex = (user1, user2) => {
     //distanceIndex =  W1 Area + W2 LocProx +  W3 commonAffil + W4 commonAct + W5 genderCommon
     //where W1 + .. + Wn = 1
     const {
@@ -143,7 +172,7 @@ var getDistanceIndex = (user1, user2, areaIndexValue) => {
         WEIGHT_COMMON_ACTIVITIES,
         WEIGHT_COMMON_GENDER } = WEIGHTS_DISTANCE_INDEX;
 
-    const distanceIndex = (areaIndexValue) +
+    const distanceIndex =
         (WEIGHT_GEO_PROX *  getGeoDistance(user1.geoLocation.coords.latitude, user1.geoLocation.coords.longitude, user2.geoLocation.coords.latitude, user2.geoLocation.coords.longitude)) +
         (WEIGHT_COMMON_AFFILIATION * (NUM_AFFILIATIONS - numberCommonAffiliations(user1, user2))) +
         (WEIGHT_COMMON_ACTIVITIES * (NUM_ACTIVITIES - numberCommonActivities(user1, user2))) +
@@ -155,70 +184,7 @@ var getDistanceIndex = (user1, user2, areaIndexValue) => {
 };
 
 
-var getLocationArea = (fb, currentUser, path, areaIndexValue, results) => {
-
-    const promise = new Promise((resolve, reject) => {
-        const ref = fb.ref(path).orderByKey();
-
-        ref.limitToFirst(LIMIT_RECORDS_LOCATION);
-
-        ref.once('value', snapshot => {
-            const data = snapshot.val();
-            if (data) {
-                const keys = Object.keys(data).slice(0);
-                let keysLeft = data;
-
-                if (keys.length == 0)
-                    resolve(results);
-
-                keys.forEach((otherUserId) => {
-                    //get other user
-                    const currentUserId = currentUser.uid;
-
-                    if (currentUserId==otherUserId){
-
-                        delete keysLeft[otherUserId];
-
-                        if (Object.keys(keysLeft).length==0)
-                            resolve(results);
-
-                    }else{
-                        getUser(fb, currentUser, otherUserId, areaIndexValue).then((otherUser) => {
-
-
-                            //console.log('User:',otherUser.uid, otherUser.distanceIndex);
-                            const uidOther = otherUser.uid
-
-                            if (!results[uidOther])
-                                results[uidOther] = otherUser;
-
-                            delete keysLeft[otherUser.uid];
-
-                            if (Object.keys(keysLeft).length==0)
-                                resolve(results);
-
-                        }).catch((e)=>{
-                            delete keysLeft[otherUserId];
-                            if (Object.keys(keysLeft).length==0)
-                                resolve(results);
-                        });
-                    }
-
-                });
-            }else {
-                resolve(results);
-                console.log('node data');
-            }
-        }).catch(function (e) {
-            resolve(results);
-            console.log('a2',e);
-        });
-    });
-
-    return promise;
-};
-
-var getUser = (fb, currentUser, otherUserId, areaIndexValue) => {
+var getUser = (fb, currentUser, otherUserId) => {
 
     var promise = new Promise((resolve, reject)=>{
 
@@ -241,8 +207,7 @@ var getUser = (fb, currentUser, otherUserId, areaIndexValue) => {
                                 && currentUser.geoLocation.coords
                                 && otherUser.geoLocation.coords)) {
 
-                            const distanceIndex = getDistanceIndex(currentUser, otherUser, areaIndexValue);
-                            otherUser.distanceIndex = distanceIndex;
+                            otherUser.distanceIndex = getDistanceIndex(currentUser, otherUser);
                             otherUser.viewed= data? data.viewed :false;
                             resolve(otherUser);
                         }else{
@@ -259,6 +224,7 @@ var getUser = (fb, currentUser, otherUserId, areaIndexValue) => {
                 reject();
             }
         }).catch(()=>{
+            console.log('failed user_profiles/'+otherUserId);
             reject();
         });
     });
@@ -317,65 +283,159 @@ var getSortedArray = (results) => {
     return arr;
 }
 
-var getLocationsFromUser = function (db, res, currentUser) {
+var setGeoFireLocations = function (db, geoFire) {
+
+  //set locations
+  db.ref(`user_profiles`).once('value', snapshot => {
+    if (snapshot.val()){
+      const users = snapshot.val() || {};
+      const keys = Object.keys(users);
+
+      keys.forEach((uid)=>{
+        const user = users[uid];
+        console.log(uid);
 
 
-    const promise = new Promise( (resolve, reject) => {
+        if ( user.geoLocation && user.geoLocation.coords && user.geoLocation.coords.latitude && user.geoLocation.coords.longitude ){
 
-        const location = currentUser.location;
+          const location = [user.geoLocation.coords.latitude, user.geoLocation.coords.longitude];
+          geoFire.set(uid, location).then(function() {
+            console.log(uid + " initially set to [" + location + "]");
+            //console.log('sss');
+          }).catch(function(e){console.log('err',e)});
+        }
+      });
 
-        if (!(location && location.country && location.state)) reject();
+    }
+  });
+}
 
-        const pathNeighborhood = `location_areas/countries/${stringToVariable(location.country)}/states/${stringToVariable(location.state)}/counties/${stringToVariable(location.county)}/cities/${stringToVariable(location.city)}/neighborhoods/${stringToVariable(location.neighborhood)}/users`;
-        const pathCity= `location_areas/countries/${stringToVariable(location.country)}/states/${stringToVariable(location.state)}/counties/${stringToVariable(location.county)}/cities/${stringToVariable(location.city)}/users`;
-        const pathCounty = `location_areas/countries/${stringToVariable(location.country)}/states/${stringToVariable(location.state)}/counties/${stringToVariable(location.county)}/users`;
-        const pathState = `location_areas/countries/${stringToVariable(location.country)}/states/${stringToVariable(location.state)}/users`;
-        const pathCountry = `location_areas/countries/${stringToVariable(location.country)}/users`;
 
-        getLocationArea(db, currentUser, pathCity, 10, {}).then((results) => {
-            console.log(pathNeighborhood);
-            const keys = Object.keys(results);
 
-            if (keys.length > LIMIT_RECORDS_LOCATION){
+var getUsers = (fb, currentUser, userRef) => {
 
-                const res = getSortedArray(results);
+  const promise = new Promise((resolve, reject)=>{
+    const uids = Object.keys(userRef);
+    let keysLeft = userRef;
+    const results = {};
 
-                resolve(res);
+    if (uids.length == 0)
+      resolve([]);
 
-            }else
-                getLocationArea(db, currentUser, pathCounty, 10000, results).then((results) => {
+    uids.forEach((otherUserId) => {
+      //get other user
+      const currentUserId = currentUser.uid;
 
-                    const keys = Object.keys(results);
+      if (currentUserId==otherUserId){
 
-                    if (keys.length > LIMIT_RECORDS_LOCATION){
+        delete keysLeft[otherUserId];
 
-                        const res = getSortedArray(results);
+        if (Object.keys(keysLeft).length==0){
+          resolve(results);
+        }
+      }else{
+        getUser(fb, currentUser, otherUserId).then((otherUser) => {
 
-                        resolve(res);
+          //console.log('User:',otherUser.uid, otherUser.distanceIndex);
+          const uidOther = otherUser.uid
 
-                    }
-                    else
-                        getLocationArea(db, currentUser, pathState, 100000, results).then((results) => {
+          if (!results[uidOther])
+            results[uidOther] = otherUser;
 
-                            const keys = Object.keys(results);
+          delete keysLeft[otherUser.uid];
 
-                            if (keys.length > LIMIT_RECORDS_LOCATION){
+          if (Object.keys(keysLeft).length==0){
+            resolve(results);
+          }
 
-                                const res = getSortedArray(results);
-                                resolve(res);
-
-                            }else
-                                getLocationArea(db, currentUser, pathCountry, 200000, results).then((results) => {
-                                  const res = getSortedArray(results);
-                                  resolve(res);
-                                });
-                        });
-                });
+        }).catch((e)=>{
+          delete keysLeft[otherUserId];
+          if (Object.keys(keysLeft).length==0)
+            resolve(results);
         });
+      }
+
     });
 
-    return promise;
+  });
 
+  return promise;
+}
+
+var getCurrentUser = (db, uid) => {
+  const promise = new Promise((resolve,reject)=>{
+    db.ref(`user_profiles/${uid}`).once('value', snapshot => {
+      if (snapshot.val()){
+        const currentUser = snapshot.val();
+        currentUser.uid = uid;
+        resolve(currentUser);
+      }else{
+        reject();
+      }
+    },
+    (err)=>{
+      reject();
+    });
+  });
+
+  return promise;
+}
+
+var putResultsFb = (db, uid, references) =>{
+  const uids = Object.keys(references);
+
+  const ref = db.ref(`match_results/${uid}`);
+  const list = {};
+
+  uids.forEach((key)=>{
+    const obj = references[key];
+
+    list[obj.uid]=true;
+  });
+
+  ref.set(list);
+};
+
+var getClosestUserReferences = (db, currentUser, radious) => {
+
+  const promise = new Promise((resolve, reject) => {
+
+    if (currentUser && currentUser.geoLocation && currentUser.geoLocation.coords && currentUser.geoLocation.coords.latitude && currentUser.geoLocation.coords.longitude){
+
+      const users = {};
+
+      const loc = [currentUser.geoLocation.coords.latitude, currentUser.geoLocation.coords.longitude];
+
+      var firebaseRef = firebase.database().ref('geoLocations');
+
+      var geoFire = new GeoFire(firebaseRef);
+
+      const newQueryCriteria = {
+        center: loc,
+        radius: radious
+      };
+
+      const geoQuery = geoFire.query(newQueryCriteria);
+
+      var listener = geoQuery.on("key_entered", function(key, location, distance) {
+        console.log(key + " entered query at " + location + " (" + distance + " km from center)");
+        users[key] = distance;
+      });
+
+      geoQuery.on('ready', function () {
+        listener.cancel();
+        geoQuery.cancel();
+        resolve(users);
+      });
+
+      geoFire.set(currentUser.uid,loc);
+
+    }else{
+      reject();
+    }
+  });
+
+  return promise;
 }
 
 
@@ -394,44 +454,109 @@ router.use(function(req, res, next) {
 
 router.get('/match_geo/:uid', function(req, res) {
 
-    var uid = req.params.uid;
-    console.log('uid:',uid);
+  var uid = req.params.uid;
 
-    var header=req.headers['authorization'];
-    console.log("header:",header);
+  var offset = parseInt(req.query.offset) || 0;
+  var limit = parseInt(req.query.limit) || LIMIT_DEFAULT;
 
-    const error = validateHeaderAuthorization(header);
+  if (limit < 1){
+    console.log("401:", "Limit must be greater than 1.");
+    return;
+  }
 
-    if (error) {
-        console.log("401:", error);
-        res.send(401, error);
-        return;
-    };
+  if (offset < 0){
+    console.log("401:", "Offset must be greater than 0.");
+    return;
+  }
 
-    var db = firebase.app().database();
 
-    //get user location
+  console.log('uid:',uid);
 
-    db.ref(`user_profiles/${uid}`).once('value', snapshot => {
-        if (snapshot.val()){
-            const currentUser = snapshot.val();
-            currentUser.uid = uid;
+  var header=req.headers['authorization'];
+  console.log("header:",header);
 
-            getLocationsFromUser(db, res, currentUser)
-                .then(function(results){
-                    res.json(results);
-                    return;
-                })
-                .catch(function (e) {
-                    res.json([]);
-                    return;
-                })
+  const error = validateHeaderAuthorization(header);
 
-        }else{
-            res.send(501, "User not found");
+  if (error) {
+    console.log("401:", error);
+    //res.send(401, error);
+    //return;
+  };
+
+  var db = firebase.app().database();
+
+  getCurrentUser(db, uid)
+    .then((currentUser)=>{
+
+      if (offset == 0){
+        getClosestUserReferences(db, currentUser, DISTANCE_RADIOUS)
+          .then((list)=>{
+            const pageRef = slice(list, 0, LIMIT_RECORDS_LOCATION)
+            //get user profiles from references
+            getUsers(db, currentUser, pageRef)
+              .then((results)=>{
+                const sortedResults = getSortedArray(results);
+
+                putResultsFb(db, currentUser.uid, sortedResults);
+
+                const page = sortedResults.slice(0, LIMIT_DEFAULT);
+
+                res.json(page);
+                return;
+
+              })
+              .catch(()=>{
+                res.json([]);
+                return;
+              });
+
+          })
+          .catch(()=>{
+            res.send(501, "Problem retrieving user references");
             return;
-        }
+          });
+      }else{
+        //get user profiles from results
+        const ref = db.ref(`match_results/${currentUser.uid}`);
+
+        ref.once('value',(snap)=>{
+          if (snap.val()){
+
+            const list = snap.val();
+
+            const userReferences = slice(list, offset,limit);
+
+            getUsers(db, currentUser, userReferences)
+              .then((results)=>{
+                const sortedResults = getSortedArray(results);
+
+                res.json(sortedResults);
+                return;
+
+              })
+              .catch(()=>{
+                res.json([]);
+                return;
+              });
+
+          }
+          else{
+            res.json([]);
+            return;
+          }
+        },(err)=>{
+          console.log(err);
+        })
+      }
+
+    })
+    .catch(()=>{
+      res.send(501, "User not found");
+      return;
     });
+
+  //setGeoFireLocations(db,geoFire);
+
 });
 
 
