@@ -11,7 +11,7 @@ const FIREBASE_STRING_BUDDIES    = "https://activities-test-a3871.firebaseio.com
 const FIREBASE_STRING_WAVELENGTH = "https://wavelength-d78bb.firebaseio.com";
 const MAP_API_KEY = 'AIzaSyACWmDGmgYDEvWuzvjpDn9GYjrafCZOSKw';
 const LIMIT_RECORDS_LOCATION = 1000;
-const LIMIT_DEFAULT = 10;
+const LIMIT_DEFAULT = 50;
 const NUM_AFFILIATIONS = 15;
 const NUM_ACTIVITIES = 12;
 const DISTANCE_RADIOUS = 1000; //km
@@ -23,11 +23,11 @@ const WEIGHTS_DISTANCE_INDEX = {
     WEIGHT_COMMON_GENDER: 10 };
 
 // INITa
-var serviceAccount = require("./auth/admin/wavelength.json");
+var serviceAccount = require("./auth/admin/buddies.json");
 
 firebase.initializeApp({
     credential: firebase.credential.cert(serviceAccount),
-    databaseURL: FIREBASE_STRING_WAVELENGTH
+    databaseURL: FIREBASE_STRING_BUDDIES
 });
 
 // Helper functions
