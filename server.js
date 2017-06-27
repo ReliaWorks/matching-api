@@ -4,7 +4,7 @@ var bodyParser = require('body-parser');
 var axios      = require('axios');
 var jsSHA      = require("jssha");
 var firebase   = require("firebase-admin");
-var GeoFire   = require("geofire");
+var GeoFire    = require("geofire");
 
 const API_SECRET_KEY      = "dsnsdhjhj332sdnm$sms092nvy!@5";
 const FIREBASE_STRING_BUDDIES    = "https://activities-test-a3871.firebaseio.com";
@@ -138,6 +138,31 @@ var sameGenderIndex = (user1, user2) => {
     return (user1.gender && user2.gender && user1.gender == user2.gender) ? 0 : 1;
 };
 
+var slice = (obj, start, limit) => {
+
+  const keys = Object.keys(obj);
+
+  const newObj = {};
+
+  let counter = 0;
+
+  let top = start + limit;
+
+  if (top > keys.length){
+    top = keys.length;
+  }
+
+  keys.forEach((key) =>{
+    if (counter >= start && counter <= top){
+      newObj[key] = obj[key];
+    };
+    counter++;
+
+  });
+
+  return newObj;
+}
+
 var getDistanceIndex = (user1, user2) => {
     //distanceIndex =  W1 Area + W2 LocProx +  W3 commonAffil + W4 commonAct + W5 genderCommon
     //where W1 + .. + Wn = 1
@@ -158,68 +183,6 @@ var getDistanceIndex = (user1, user2) => {
     return Math.round(distanceIndex);
 };
 
-
-var getLocationArea = (fb, currentUser, path, areaIndexValue, results) => {
-
-    const promise = new Promise((resolve, reject) => {
-        const ref = fb.ref(path).orderByKey();
-
-        ref.limitToFirst(LIMIT_RECORDS_LOCATION);
-
-        ref.once('value', snapshot => {
-            const data = snapshot.val();
-            if (data) {
-                const keys = Object.keys(data).slice(0);
-                let keysLeft = data;
-
-                if (keys.length == 0)
-                    resolve(results);
-
-                keys.forEach((otherUserId) => {
-                    //get other user
-                    const currentUserId = currentUser.uid;
-
-                    if (currentUserId==otherUserId){
-
-                        delete keysLeft[otherUserId];
-
-                        if (Object.keys(keysLeft).length==0)
-                            resolve(results);
-
-                    }else{
-                        getUser(fb, currentUser, otherUserId, areaIndexValue).then((otherUser) => {
-
-                            //console.log('User:',otherUser.uid, otherUser.distanceIndex);
-                            const uidOther = otherUser.uid
-
-                            if (!results[uidOther])
-                                results[uidOther] = otherUser;
-
-                            delete keysLeft[otherUser.uid];
-
-                            if (Object.keys(keysLeft).length==0)
-                                resolve(results);
-
-                        }).catch((e)=>{
-                            delete keysLeft[otherUserId];
-                            if (Object.keys(keysLeft).length==0)
-                                resolve(results);
-                        });
-                    }
-
-                });
-            }else {
-                resolve(results);
-                console.log('node data');
-            }
-        }).catch(function (e) {
-            resolve(results);
-            console.log('a2',e);
-        });
-    });
-
-    return promise;
-};
 
 var getUser = (fb, currentUser, otherUserId) => {
 
@@ -244,8 +207,7 @@ var getUser = (fb, currentUser, otherUserId) => {
                                 && currentUser.geoLocation.coords
                                 && otherUser.geoLocation.coords)) {
 
-                            const distanceIndex = getDistanceIndex(currentUser, otherUser);
-                            otherUser.distanceIndex = distanceIndex;
+                            otherUser.distanceIndex = getDistanceIndex(currentUser, otherUser);
                             otherUser.viewed= data? data.viewed :false;
                             resolve(otherUser);
                         }else{
@@ -262,6 +224,7 @@ var getUser = (fb, currentUser, otherUserId) => {
                 reject();
             }
         }).catch(()=>{
+            console.log('failed user_profiles/'+otherUserId);
             reject();
         });
     });
@@ -347,72 +310,14 @@ var setGeoFireLocations = function (db, geoFire) {
   });
 }
 
-var getLocationsFromUser = function (db, res, currentUser) {
 
-
-    const promise = new Promise( (resolve, reject) => {
-
-        const location = currentUser.location;
-
-        if (!(location && location.country && location.state)) reject();
-
-        const pathNeighborhood = `location_areas/countries/${stringToVariable(location.country)}/states/${stringToVariable(location.state)}/counties/${stringToVariable(location.county)}/cities/${stringToVariable(location.city)}/neighborhoods/${stringToVariable(location.neighborhood)}/users`;
-        const pathCity= `location_areas/countries/${stringToVariable(location.country)}/states/${stringToVariable(location.state)}/counties/${stringToVariable(location.county)}/cities/${stringToVariable(location.city)}/users`;
-        const pathCounty = `location_areas/countries/${stringToVariable(location.country)}/states/${stringToVariable(location.state)}/counties/${stringToVariable(location.county)}/users`;
-        const pathState = `location_areas/countries/${stringToVariable(location.country)}/states/${stringToVariable(location.state)}/users`;
-        const pathCountry = `location_areas/countries/${stringToVariable(location.country)}/users`;
-
-        getLocationArea(db, currentUser, pathCity, 10, {}).then((results) => {
-            console.log(pathNeighborhood);
-            const keys = Object.keys(results);
-
-            if (keys.length > LIMIT_RECORDS_LOCATION){
-
-                const res = getSortedArray(results);
-
-                resolve(res);
-
-            }else
-                getLocationArea(db, currentUser, pathCounty, 10000, results).then((results) => {
-
-                    const keys = Object.keys(results);
-
-                    if (keys.length > LIMIT_RECORDS_LOCATION){
-
-                        const res = getSortedArray(results);
-
-                        resolve(res);
-
-                    }
-                    else
-                        getLocationArea(db, currentUser, pathState, 100000, results).then((results) => {
-
-                            const keys = Object.keys(results);
-
-                            if (keys.length > LIMIT_RECORDS_LOCATION){
-
-                                const res = getSortedArray(results);
-                                resolve(res);
-
-                            }else
-                                getLocationArea(db, currentUser, pathCountry, 200000, results).then((results) => {
-                                  const res = getSortedArray(results);
-                                  resolve(res);
-                                });
-                        });
-                });
-        });
-    });
-
-    return promise;
-
-}
 
 var getUsers = (fb, currentUser, userRef) => {
 
   const promise = new Promise((resolve, reject)=>{
     const uids = Object.keys(userRef);
     let keysLeft = userRef;
+    const results = {};
 
     if (uids.length == 0)
       resolve([]);
@@ -425,9 +330,9 @@ var getUsers = (fb, currentUser, userRef) => {
 
         delete keysLeft[otherUserId];
 
-        if (Object.keys(keysLeft).length==0)
+        if (Object.keys(keysLeft).length==0){
           resolve(results);
-
+        }
       }else{
         getUser(fb, currentUser, otherUserId).then((otherUser) => {
 
@@ -439,8 +344,9 @@ var getUsers = (fb, currentUser, userRef) => {
 
           delete keysLeft[otherUser.uid];
 
-          if (Object.keys(keysLeft).length==0)
+          if (Object.keys(keysLeft).length==0){
             resolve(results);
+          }
 
         }).catch((e)=>{
           delete keysLeft[otherUserId];
@@ -453,7 +359,7 @@ var getUsers = (fb, currentUser, userRef) => {
 
   });
 
-
+  return promise;
 }
 
 var getCurrentUser = (db, uid) => {
@@ -481,8 +387,10 @@ var putResultsFb = (db, uid, references) =>{
   const ref = db.ref(`match_results/${uid}`);
   const list = {};
 
-  uids.forEach((uid)=>{
-    list[uid]=true;
+  uids.forEach((key)=>{
+    const obj = references[key];
+
+    list[obj.uid]=true;
   });
 
   ref.set(list);
@@ -492,16 +400,18 @@ var getClosestUserReferences = (db, currentUser, radious) => {
 
   const promise = new Promise((resolve, reject) => {
 
-    if (currentUser && currentUser.location && currentUser.location.coords && currentUser.location.coords.latitude && currentUser.location.coords.longitude){
+    if (currentUser && currentUser.geoLocation && currentUser.geoLocation.coords && currentUser.geoLocation.coords.latitude && currentUser.geoLocation.coords.longitude){
 
-      const users = [];
+      const users = {};
+
+      const loc = [currentUser.geoLocation.coords.latitude, currentUser.geoLocation.coords.longitude];
 
       var firebaseRef = firebase.database().ref('geoLocations');
 
       var geoFire = new GeoFire(firebaseRef);
 
       const newQueryCriteria = {
-        center: [currentUser.location.coords.latitude,currentUser.location.coords.longitude],
+        center: loc,
         radius: radious
       };
 
@@ -517,6 +427,8 @@ var getClosestUserReferences = (db, currentUser, radious) => {
         geoQuery.cancel();
         resolve(users);
       });
+
+      geoFire.set(currentUser.uid,loc);
 
     }else{
       reject();
@@ -544,8 +456,18 @@ router.get('/match_geo/:uid', function(req, res) {
 
   var uid = req.params.uid;
 
-  var offset = req.query.offset || 0;
-  var limit = req.query.limit || LIMIT_DEFAULT;
+  var offset = parseInt(req.query.offset) || 0;
+  var limit = parseInt(req.query.limit) || LIMIT_DEFAULT;
+
+  if (limit < 1){
+    console.log("401:", "Limit must be greater than 1.");
+    return;
+  }
+
+  if (offset < 0){
+    console.log("401:", "Offset must be greater than 0.");
+    return;
+  }
 
 
   console.log('uid:',uid);
@@ -568,11 +490,10 @@ router.get('/match_geo/:uid', function(req, res) {
 
       if (offset == 0){
         getClosestUserReferences(db, currentUser, DISTANCE_RADIOUS)
-          .then((userReferences)=>{
-
-            const pageRef = userReferences.slice(0, LIMIT_RECORDS_LOCATION)
+          .then((list)=>{
+            const pageRef = slice(list, 0, LIMIT_RECORDS_LOCATION)
             //get user profiles from references
-            getUsers(db, currentUser, userReferences)
+            getUsers(db, currentUser, pageRef)
               .then((results)=>{
                 const sortedResults = getSortedArray(results);
 
@@ -598,12 +519,12 @@ router.get('/match_geo/:uid', function(req, res) {
         //get user profiles from results
         const ref = db.ref(`match_results/${currentUser.uid}`);
 
-        ref.once((snap)=>{
+        ref.once('value',(snap)=>{
           if (snap.val()){
 
-            const uids = Object.keys(snap.val());
+            const list = snap.val();
 
-            const userReferences = uids.slice(offset,limit);
+            const userReferences = slice(list, offset,limit);
 
             getUsers(db, currentUser, userReferences)
               .then((results)=>{
@@ -623,6 +544,8 @@ router.get('/match_geo/:uid', function(req, res) {
             res.json([]);
             return;
           }
+        },(err)=>{
+          console.log(err);
         })
       }
 
