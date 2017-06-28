@@ -310,6 +310,37 @@ var setGeoFireLocations = function (db, geoFire) {
   });
 }
 
+var getUserList = (db, uid, listArr) => {
+
+  const promise = new Promise((resolve, reject)=>{
+
+    if (listArr.length==0) {
+      resolve([]);
+      return;
+    }
+
+    const result = new Array(listArr.length);
+    let left = listArr.length;
+
+    for(let index = 0; index < listArr.length; index++){
+      const otherUid = listArr[index];
+
+      db.ref(`user_profiles/${otherUid}`).once('value', snapshot => {
+        const currentIndex = index;
+
+        if (snapshot.val()){
+          result[currentIndex] = snapshot.val();
+          left--;
+          if (left==0)
+            resolve(result);
+        }
+      });
+    }
+
+  });
+
+  return promise;
+}
 
 
 var getUsers = (fb, currentUser, userRef) => {
@@ -385,12 +416,13 @@ var putResultsFb = (db, uid, references) =>{
   const uids = Object.keys(references);
 
   const ref = db.ref(`match_results/${uid}`);
-  const list = {};
+  const list = [];
 
+  let k = 0;
   uids.forEach((key)=>{
     const obj = references[key];
 
-    list[obj.uid]=true;
+    list[k++]=obj.uid;
   });
 
   ref.set(list);
@@ -522,15 +554,14 @@ router.get('/match_geo/:uid', function(req, res) {
         ref.once('value',(snap)=>{
           if (snap.val()){
 
-            const list = snap.val();
-
-            const userReferences = slice(list, offset,limit);
-
-            getUsers(db, currentUser, userReferences)
+            getUserList(db, currentUser.uid, snap.val())
               .then((results)=>{
-                const sortedResults = getSortedArray(results);
 
-                res.json(sortedResults);
+                const top = (offset + limit) > results.length ? results.length : offset + limit;
+
+                const page = results.slice(offset, top);
+
+                res.json(page);
                 return;
 
               })
