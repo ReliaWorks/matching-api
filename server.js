@@ -14,7 +14,7 @@ const LIMIT_RECORDS_LOCATION = 1000;
 const LIMIT_DEFAULT = 50;
 const NUM_AFFILIATIONS = 15;
 const NUM_ACTIVITIES = 12;
-const DISTANCE_RADIOUS = 1000; //km
+const DISTANCE_RADIOUS = 10000; //km
 
 const WEIGHTS_DISTANCE_INDEX = {
     WEIGHT_GEO_PROX: 10,
@@ -153,7 +153,7 @@ var slice = (obj, start, limit) => {
   }
 
   keys.forEach((key) =>{
-    if (counter >= start && counter <= top){
+    if (counter >= start && counter < top){
       newObj[key] = obj[key];
     };
     counter++;
@@ -499,7 +499,7 @@ router.get('/match_geo/:uid', function(req, res) {
 
                 putResultsFb(db, currentUser.uid, sortedResults);
 
-                const page = sortedResults.slice(0, LIMIT_DEFAULT);
+                const page = sortedResults.slice(0, limit);
 
                 res.json(page);
                 return;
