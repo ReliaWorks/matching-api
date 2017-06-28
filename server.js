@@ -330,6 +330,7 @@ var getUserList = (db, uid, listArr) => {
 
         if (snapshot.val()){
           result[currentIndex] = snapshot.val();
+          result[currentIndex].uid = otherUid;
           left--;
           if (left==0)
             resolve(result);
