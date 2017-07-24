@@ -397,8 +397,13 @@ var getUsers = (fb, currentUser, userRef) => {
 var getCurrentUser = (db, uid) => {
   const promise = new Promise((resolve,reject)=>{
     db.ref(`user_profiles/${uid}`).once('value', snapshot => {
-      if (snapshot.val()){
-        const currentUser = snapshot.val();
+
+      const currentUser = snapshot.val() || {};
+
+      const affiliations = Object.keys(currentUser.affiliations) || [];
+      const activities = Object.keys(currentUser.activities) || [];
+
+      if (currentUser.description || affiliations.length || activities.length || currentUser.thumbnailImage ){
         currentUser.uid = uid;
         resolve(currentUser);
       }else{
@@ -522,7 +527,13 @@ router.get('/match_geo/:uid', function(req, res) {
     .then((currentUser)=>{
 
       if (offset == 0){
-        getClosestUserReferences(db, currentUser, DISTANCE_RADIOUS)
+        
+        let radious = DISTANCE_RADIOUS;
+        if (currentUser.distanceRadious && Number.isInteger(currentUser.distanceRadious)){
+          radious = currentUser.distanceRadious;
+        }
+
+        getClosestUserReferences(db, currentUser, radious)
           .then((list)=>{
             const pageRef = slice(list, 0, LIMIT_RECORDS_LOCATION)
             //get user profiles from references
