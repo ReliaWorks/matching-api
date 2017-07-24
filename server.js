@@ -400,8 +400,8 @@ var getCurrentUser = (db, uid) => {
 
       const currentUser = snapshot.val() || {};
 
-      const affiliations = Object.keys(currentUser.affiliations) || [];
-      const activities = Object.keys(currentUser.activities) || [];
+      const affiliations = Object.keys((currentUser.affiliations||[])) || [];
+      const activities = Object.keys((currentUser.activities||[])) || [];
 
       if (currentUser.description || affiliations.length || activities.length || currentUser.thumbnailImage ){
         currentUser.uid = uid;
