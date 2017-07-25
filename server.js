@@ -196,7 +196,11 @@ var getUser = (fb, currentUser, otherUserId) => {
                 const otherUser = snap.val();
                 otherUser.uid = otherUserId;
 
-                if (otherUser.status == 'ACTIVE')
+              const affiliations = Object.keys((otherUser.affiliations||[])) || [];
+              const activities = Object.keys((otherUser.activities||[])) || [];
+
+
+              if (otherUser.status == 'ACTIVE' && (affiliations.length || activities.length))
                     fb.ref(`user_matches/${currentUser.uid}/${otherUserId}`).once('value', (snap2) => {
                         const data = snap2.val();
                         //is not in user matches already
@@ -400,15 +404,9 @@ var getCurrentUser = (db, uid) => {
 
       const currentUser = snapshot.val() || {};
 
-      const affiliations = Object.keys((currentUser.affiliations||[])) || [];
-      const activities = Object.keys((currentUser.activities||[])) || [];
+      currentUser.uid = uid;
+      resolve(currentUser);
 
-      if (currentUser.description || affiliations.length || activities.length || currentUser.thumbnailImage ){
-        currentUser.uid = uid;
-        resolve(currentUser);
-      }else{
-        reject();
-      }
     },
     (err)=>{
       reject();
