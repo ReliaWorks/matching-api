@@ -416,6 +416,34 @@ var getCurrentUser = (db, uid) => {
   return promise;
 }
 
+
+var getMatchedEvents = (db, user1, user2) => {
+  const promise = new Promise((resolve,reject)=>{
+    db.ref(`events`).once('value', snapshot => {
+
+        const list = snapshot.val() || {};
+        const eventIds = Object.keys(list);
+        let results = [];
+
+        eventIds.forEach( eventId => {
+          const obj = list[eventId];
+          obj.id = eventId;
+          results.push(obj);
+        });
+
+        results = shuffle(results);
+        resolve(results);
+
+      },
+      (err)=>{
+        reject();
+      });
+  });
+
+  return promise;
+}
+
+
 var putResultsFb = (db, uid, references) =>{
   const uids = Object.keys(references);
 
@@ -600,6 +628,52 @@ router.get('/match_geo/:uid', function(req, res) {
 
 });
 
+
+router.get('/match_event/:uid1/:uid2', function(req, res) {
+
+  var uid1 = req.params.uid1;
+  var uid2 = req.params.uid2;
+
+
+  var header=req.headers['authorization'];
+  console.log("header:",header);
+
+  const error = validateHeaderAuthorization(header);
+
+  if (error) {
+    console.log("401:", error);
+    //res.send(401, error);
+    //return;
+  };
+
+  var db = firebase.app().database();
+
+  getCurrentUser(db, uid1)
+    .then((user1)=>{
+      getCurrentUser(db, uid2)
+        .then((user2)=>{
+          getMatchedEvents(db, user1, user2).then((events)=>{
+            if (events.length){
+              res.send(events[0]);
+            }else{
+              res.send({});
+            }
+          }).catch(()=>{
+            res.send({});
+          });
+        })
+        .catch(()=>{
+          res.send(501, "User 2 not found");
+          return;
+        });
+    })
+    .catch(()=>{
+      res.send(501, "User 1 not found");
+      return;
+    });
+
+
+});
 
 app.use('/', router);
 
