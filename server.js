@@ -22,6 +22,11 @@ const WEIGHTS_DISTANCE_INDEX = {
     WEIGHT_COMMON_ACTIVITIES: 30,
     WEIGHT_COMMON_GENDER: 10 };
 
+const WEIGHT_EVENT_INDEX = {
+  WEIGHT_COMMON_AFFILIATION: 50,
+  WEIGHT_COMMON_ACTIVITIES: 50
+};
+
 // INITa
 var serviceAccount = require("./auth/admin/buddies.json");
 
@@ -109,29 +114,37 @@ var getGeoDistance = (lat1, lon1, lat2, lon2) => {
     return earthRadiusKm * c;
 };
 
-var numberCommonAffiliations = (user1, user2) => {
-    if (!user1 || !user2 || !user1.affiliations || !user2.affiliations) return 0;
+var commonAffiliations = (affiliationsObj1, affiliationsObj2) => {
+  if (!affiliationsObj1 || !affiliationsObj2) return [];
 
-    const affiliations1 = Object.keys(user1.affiliations);
-    const affiliations2 = Object.keys(user2.affiliations);
-    const intersection = affiliations1.filter((n) => {
-        return affiliations2.indexOf(n) !== -1;
-    });
+  const affiliations1 = Object.keys(affiliationsObj1);
+  const affiliations2 = Object.keys(affiliationsObj2);
+  const intersection = affiliations1.filter((n) => {
+    return affiliations2.indexOf(n) !== -1;
+  });
 
-    return intersection.length;
+  return intersection || [];
 };
 
-var numberCommonActivities = (user1, user2) => {
-    if (!user1 || !user2 || !user1.activities || !user2.activities) return 0;
+var numberCommonAffiliations = (affiliations1, affiliations2) => {
+    return commonAffiliations(affiliations1, affiliations2).length;
+};
 
-    const activities1 = Object.keys(user1.activities);
-    const activities2 = Object.keys(user2.activities);
+var commonActivities = (activitiesObj1, activitiesObj2) => {
+    if (!activitiesObj1 || !activitiesObj2) return [];
+
+    const activities1 = Object.keys(activitiesObj1);
+    const activities2 = Object.keys(activitiesObj2);
     const intersection = activities1.filter((n) => {
         return activities2.indexOf(n) !== -1;
     });
 
-    return intersection.length;
+    return intersection || [];
 };
+
+var numberCommonActivities = (user1, user2) => {
+    return commonActivities(user1, user2).length;
+}
 
 var sameGenderIndex = (user1, user2) => {
     //if they have the same index they are closer in the array
@@ -166,7 +179,11 @@ var slice = (obj, start, limit) => {
 var getDistanceIndex = (user1, user2) => {
     //distanceIndex =  W1 Area + W2 LocProx +  W3 commonAffil + W4 commonAct + W5 genderCommon
     //where W1 + .. + Wn = 1
-    const {
+
+    if (!user1) user1 = {};
+    if (!user2) user2 = {};
+
+  const {
         WEIGHT_GEO_PROX,
         WEIGHT_COMMON_AFFILIATION,
         WEIGHT_COMMON_ACTIVITIES,
@@ -174,8 +191,8 @@ var getDistanceIndex = (user1, user2) => {
 
     const distanceIndex =
         (WEIGHT_GEO_PROX *  getGeoDistance(user1.geoLocation.coords.latitude, user1.geoLocation.coords.longitude, user2.geoLocation.coords.latitude, user2.geoLocation.coords.longitude)) +
-        (WEIGHT_COMMON_AFFILIATION * (NUM_AFFILIATIONS - numberCommonAffiliations(user1, user2))) +
-        (WEIGHT_COMMON_ACTIVITIES * (NUM_ACTIVITIES - numberCommonActivities(user1, user2))) +
+        (WEIGHT_COMMON_AFFILIATION * (NUM_AFFILIATIONS - numberCommonAffiliations(user1.affiliations, user2.affiliations))) +
+        (WEIGHT_COMMON_ACTIVITIES * (NUM_ACTIVITIES - numberCommonActivities(user1.activities, user2.activities))) +
         (WEIGHT_COMMON_GENDER * sameGenderIndex(user1, user2));
 
     console.log('distanceIndex', distanceIndex);
@@ -285,6 +302,16 @@ var getSortedArray = (results) => {
     const arr = notViewedArr.concat(restArr);
 
     return arr;
+}
+
+var setEventAffiliations = function (db) {
+
+  var affiliations = {'-Kpr8yhQ99G4j_1ZUu73':{'-KhTbYT7ZkIZ9axyVtX4':true, '-KhTbYSyZPvRqlilaJSZ':true, '-KhTbYT8IGpJMDcNPnHK':true}, '-Kpr8yhQ99G4j_1ZUu89':{'-Kmmc6-6T8RBKxFPsjZ9':true, '-Kmmc6-1_sKsXUC0Knhr':true, '-Kmmc6-6T8RBKxFPsjZ8':true}};
+  var activities = {'-Kpr8yhQ99G4j_1ZUu73':{'-KhTZvfccXWD_JQ-1UHK':true, '-KhTZvfmLrQ0BWxs2QQ2':true, '-KhTZvfmLrQ0BWxs2QQ3':true}, '-Kpr8yhQ99G4j_1ZUu89':{'-KhTZvfnhJGHSluOOG6y':true, '-KhTZvfnhJGHSluOOG6z':true, '-KhTZvfnhJGHSluOOG7-':true}};
+
+  db.ref(`events_affiliations`).set(affiliations);
+  db.ref(`events_activities`).set(activities);
+
 }
 
 var setGeoFireLocations = function (db, geoFire) {
@@ -416,24 +443,54 @@ var getCurrentUser = (db, uid) => {
   return promise;
 }
 
+var getSimilarityEventIndex = (eventObj, user1, user2) => {
+
+  //get common affiliations and activities
+
+  var c = commonAffiliations(user1.affiliations, user2.affiliations);
+  var a = commonActivities(user1.activities, user2.activities);
+
+  var eventNumberCommonAffiliations = numberCommonAffiliations(eventObj.affiliations, c);
+  var eventNumberCommonActivities = numberCommonActivities(eventObj.activities, a);
+
+  const index = WEIGHT_EVENT_INDEX.WEIGHT_COMMON_AFFILIATION * eventNumberCommonAffiliations + WEIGHT_EVENT_INDEX.WEIGHT_COMMON_ACTIVITIES * eventNumberCommonActivities;
+
+  return index;
+
+}
+
 
 var getMatchedEvents = (db, user1, user2) => {
   const promise = new Promise((resolve,reject)=>{
+
+
     db.ref(`events`).once('value', snapshot => {
 
         const list = snapshot.val() || {};
         const eventIds = Object.keys(list);
         let results = [];
 
+        let left = eventIds.length;
+
         eventIds.forEach( eventId => {
           const obj = list[eventId];
           obj.id = eventId;
-          results.push(obj);
+          obj.affiliations = obj.affiliations ? Object.keys(obj.affiliations) : [];
+          obj.activities = obj.activities ? Object.keys(obj.activities) : [];
+
+          obj.similarIndex = getSimilarityEventIndex(obj, user1, user2);
+          left--;
+          if (obj.similarIndex)
+            results.push(obj);
+
+          if (left == 0){
+            results.sort(function(a, b) {
+              return  b.similarIndex - a.similarIndex;
+            });
+            resolve(results);
+          }
+
         });
-
-        results = shuffle(results);
-        resolve(results);
-
       },
       (err)=>{
         reject();
